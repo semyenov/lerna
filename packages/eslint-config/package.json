@@ -1,0 +1,94 @@
+{
+  "$schema": "https://json.schemastore.org/package.json",
+  "name": "@regioni/eslint-config",
+  "type": "module",
+  "version": "0.0.11",
+  "packageManager": "yarn@4.0.1",
+  "description": "Eslint-config CLI",
+  "author": "Alexander Semyenov <semyenov@hotmail.com>",
+  "license": "MIT",
+  "homepage": "https://github.com/semyenov/eslint-config#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/semyenov/eslint-config.git"
+  },
+  "bugs": "https://github.com/semyenov/eslint-config/issues",
+  "keywords": [],
+  "sideEffects": false,
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.cts",
+  "exports": {
+    "require": {
+      "types": "./dist/index.d.cts",
+      "default": "./dist/index.cjs"
+    },
+    "import": {
+      "types": "./dist/index.d.mts",
+      "default": "./dist/index.mjs"
+    }
+  },
+  "typesVersions": {
+    "*": {
+      "*": [
+        "./dist/*",
+        "./dist/index.d.ts"
+      ]
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "dev": "esno src/index.ts",
+    "build": "pkgroll",
+    "typecheck": "tsc --noEmit",
+    "start": "cross-env NODE_OPTIONS=\"--experimental-modules --experimental-import-meta-resolve --no-warnings\" dist/esm/index.mjs",
+    "schema": "typescript-json-schema --out schema.json --skipLibCheck src/index.ts ConfigItem",
+    "release": "yarn npm publish",
+    "lint": "eslint --config eslint.config.js",
+    "clean": "yarn exec rm -rf dist"
+  },
+  "dependencies": {
+    "@antfu/eslint-config": "^1.1.1",
+    "@eslint/eslintrc": "^2.1.3",
+    "@typescript-eslint/eslint-plugin": "^6.11.0",
+    "@typescript-eslint/parser": "^6.11.0",
+    "@typescript-eslint/utils": "^6.11.0",
+    "eslint": "^8.53.0",
+    "eslint-import-resolver-node": "^0.3.9",
+    "eslint-import-resolver-typescript": "^3.6.1",
+    "eslint-plugin-antfu": "^1.0.2",
+    "eslint-plugin-eslint-comments": "^3.2.0",
+    "eslint-plugin-html": "^7.1.0",
+    "eslint-plugin-import": "^2.29.0",
+    "eslint-plugin-jsonc": "^2.10.0",
+    "eslint-plugin-markdown": "^3.0.1",
+    "eslint-plugin-n": "^16.3.1",
+    "eslint-plugin-no-only-tests": "^3.1.0",
+    "eslint-plugin-promise": "^6.1.1",
+    "eslint-plugin-unicorn": "^49.0.0",
+    "eslint-plugin-unused-imports": "^3.0.0",
+    "eslint-plugin-vue": "^9.18.1",
+    "eslint-plugin-yml": "^1.10.0",
+    "jsonc-eslint-parser": "^2.4.0",
+    "pkgroll": "^2.1.1",
+    "vue-eslint-parser": "^9.3.2",
+    "yaml-eslint-parser": "^1.2.2"
+  },
+  "devDependencies": {
+    "@antfu/eslint-config-ts": "^0.43.1",
+    "@antfu/utils": "^0.7.6",
+    "@types/eslint": "^8.44.7",
+    "@types/eslint__eslintrc": "^2.1.1",
+    "@types/node": "^20.9.0",
+    "@yarnpkg/builder": "^4.0.0",
+    "@yarnpkg/sdks": "^3.0.0",
+    "consola": "^3.2.3",
+    "cross-env": "^7.0.3",
+    "esno": "^4.0.0",
+    "tslib": "^2.6.2",
+    "typescript": "^5.2.2",
+    "typescript-json-schema": "0.62.0"
+  }
+}

@@ -1,0 +1,85 @@
+{
+  "$schema": "https://json.schemastore.org/package.json",
+  "name": "@regioni/backend",
+  "type": "module",
+  "version": "0.0.9",
+  "packageManager": "yarn@4.1.1",
+  "description": "Rollup build script",
+  "author": "Alexander Semyenov <semyenov@hotmail.com>",
+  "license": "MIT",
+  "homepage": "https://gitea.local/regioni/backend#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://gitea.local/regioni/backend.git"
+  },
+  "bugs": "https://gitea.local/semyenov/rollup-build/issues",
+  "keywords": [],
+  "sideEffects": false,
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.cts",
+  "exports": {
+      "require": {
+          "types": "./dist/index.d.cts",
+          "default": "./dist/index.cjs"
+      },
+      "import": {
+          "types": "./dist/index.d.mts",
+          "default": "./dist/index.mjs"
+      }
+  },
+  "typesVersions": {
+    "*": {
+      "*": [
+        "./dist/*",
+        "./dist/index.d.ts"
+      ]
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "pkgroll",
+    "start": "cross-env NODE_OPTIONS=\"--no-warnings --experimental-modules --experimental-import-meta-resolve\" yarn node dist/esm/index.mjs",
+    "schema": "yarn typescript-json-schema --out schema.json --skipLibCheck src/index.ts Options",
+    "typecheck": "yarn tsc --noEmit",
+    "release": "yarn npm publish",
+    "clean": "yarn exec rm -rf dist",
+    "lint": "yarn eslint --config eslint.config.js",
+    "dev": "yarn tsx --watch src",
+    "client": "yarn tsx --watch src/client",
+    "workers": "yarn tsx --watch src/workers",
+    "generate:types": "yarn tsx scripts/generate_types.ts",
+    "generate:keys": "yarn tsx scripts/generate_keys.ts"
+  },
+  "dependencies": {
+    "@antfu/utils": "^0.7.10",
+    "@chainsafe/libp2p-gossipsub": "^13.1.0",
+    "@msgpack/msgpack": "^3.0.0-beta2",
+    "@orbitdb/core": "^2.2.0",
+    "@trpc/client": "^10.45.2",
+    "@trpc/server": "^10.45.2",
+    "blockstore-level": "^1.1.8",
+    "c12": "^1.11.1",
+    "chalk": "^5.3.0",
+    "consola": "^3.2.3",
+    "cross-env": "7.0.3",
+    "defu": "^6.1.4",
+    "dotenv": "^16.4.5",
+    "fast-glob": "^3.3.2",
+    "h3": "^1.12.0",
+    "libp2p": "^1.7.0",
+    "listhen": "^1.7.2",
+    "nanoid": "^5.0.7",
+    "ts-pattern": "^5.1.0",
+    "unstorage": "^1.10.2"
+  },
+  "devDependencies": {
+    "@regioni/lib": "workspace:^",
+    "@types/elliptic": "^6",
+    "@types/orbitdb__core": "workspace:^",
+    "pkgroll": "^2.1.1",
+    "tsx": "^4.7.2"
+  }
+}

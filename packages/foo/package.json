@@ -1,0 +1,26 @@
+{
+    "name": "@regioni/foo",
+    "version": "1.0.0",
+    "main": "./dist/index.cjs",
+    "module": "./dist/index.mjs",
+    "types": "./dist/index.d.cts",
+    "exports": {
+        "require": {
+            "types": "./dist/index.d.cts",
+            "default": "./dist/index.cjs"
+        },
+        "import": {
+            "types": "./dist/index.d.mts",
+            "default": "./dist/index.mjs"
+        }
+    },
+    "files": [
+        "dist"
+    ],
+    "scripts": {
+        "build": "pkgroll"
+    },
+    "devDependencies": {
+        "typescript": "~4.9.0"
+    }
+}
