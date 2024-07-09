@@ -42,14 +42,14 @@ export function wrapSocket<T>(ws: WebSocketProxy, identity?: IdentityInstance) {
   }) as T
 }
 
-async function customOn(
+function customOn(
   this: WebSocketProxy,
   event: string,
   listener: (...args: any[]) => void,
 ) {
   return this.on(event, customListener)
 
-  async function customListener(this: WebSocketProxy, ...args: any[]) {
+  function customListener(this: WebSocketProxy, ...args: any[]) {
     if (event === 'message') {
       const [_data, isBinary] = args as [BufferLike, boolean]
 
@@ -85,7 +85,7 @@ async function customOn(
   }
 }
 
-async function customSend(
+function customSend(
   this: WebSocketProxy,
   data: BufferLike,
   cb?: (error?: Error) => void,

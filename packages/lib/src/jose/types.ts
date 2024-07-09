@@ -1,7 +1,6 @@
-import type * as jose from 'jose'
-import type { JWTVerifyGetKey } from 'jose'
+import type { GenerateKeyPairResult, JWK, JWTVerifyGetKey, KeyLike } from 'jose'
 
-export type KeyPair = jose.GenerateKeyPairResult<jose.KeyLike & jose.JWK>
+export type KeyPair = GenerateKeyPairResult<KeyLike & JWK>
 
 export interface IJoseVerify {
   key: KeyPair

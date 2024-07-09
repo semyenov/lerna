@@ -49,6 +49,13 @@ const db = await orbit.open('test', {
     write: [identity.id],
   }),
 })
+const d: number = 4
+if (d === 1 || d === 3) {
+  console.log('d is 1')
+}
+if (d === 2) {
+  console.log('d is 2')
+}
 
 for (let i = 0; i < 10; i++) {
   await db.add({ message: `Hello, world! ${i}` })

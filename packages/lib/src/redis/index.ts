@@ -25,9 +25,7 @@ export async function createRedisStore(
 
     const getKeys = async () => {
       const pattern = formatPattern('*')
-      const keys = await connection.keys(pattern)
-
-      return keys
+      return await connection.keys(pattern)
     }
 
     const getAll = async () => {

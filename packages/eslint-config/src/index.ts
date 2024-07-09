@@ -1,9 +1,15 @@
 import { presetAll, sxzz } from '@sxzz/eslint-config'
+import pluginSecurity from 'eslint-plugin-security'
+import sonarjs from 'eslint-plugin-sonarjs'
 
+import type { Linter } from 'eslint'
 const config = sxzz([
+  pluginSecurity.configs.recommended,
   ...presetAll,
+  sonarjs.configs.recommended as Linter.FlatConfig,
   {
     rules: {
+      'eslint-comments/no-unlimited-disable': 'off',
       'no-duplicate-imports': 'off',
       'import/order': [
         'error',

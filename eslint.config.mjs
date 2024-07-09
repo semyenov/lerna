@@ -9,6 +9,15 @@ import config from '@regioni/eslint-config'
 export default [
   ...config,
   {
-    ignores: ['node_modules', '.yarn/*', 'dist', 'build', 'public', 'coverage', 'cypress', 'jest'],
+    ignores: [
+      'node_modules',
+      '.yarn/*',
+      'dist',
+      'build',
+      'public',
+      'coverage',
+      'cypress',
+      'jest',
+    ],
   },
 ]

@@ -41,7 +41,7 @@ export async function verify(
   return payload
 }
 
-export async function secp256k1ToJoseJWK(keyPair: PrivateKeys): Promise<JWK> {
+export function secp256k1ToJoseJWK(keyPair: PrivateKeys): JWK {
   if (!keyPair) {
     throw new Error('No key pair provided')
   }
@@ -74,7 +74,6 @@ export async function secp256k1ToJoseJWK(keyPair: PrivateKeys): Promise<JWK> {
     x,
     y,
   }
-
   return {
     publicKey: test,
     privateKey: (test.d = d),

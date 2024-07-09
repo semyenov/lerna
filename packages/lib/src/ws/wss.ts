@@ -35,12 +35,12 @@ export function wrapSocketServer(wss: WebSocketServer) {
   })
 }
 
-async function customOn(
+function customOn(
   this: WebSocketServer,
   event: string,
   listener: (...args: any[]) => void,
 ) {
-  this.on(event, async (...args: any[]) => {
+  this.on(event, (...args: any[]) => {
     if (event === 'connection') {
       logger.info('Connection')
       args[0] = wrapSocket(args[0] as WebSocket, this.identity)

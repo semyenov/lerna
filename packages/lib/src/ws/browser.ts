@@ -37,14 +37,14 @@ export function wrapSocket(ws: WebSocketBrowserProxy) {
 
 type BufferLike = string | ArrayBufferView | ArrayBufferLike | Blob
 
-async function customOn(
+function customOn(
   this: WebSocketBrowserProxy,
   event: string,
   listener: (...args: any[]) => void,
 ) {
   this.addEventListener(event, customListener)
 
-  async function customListener(this: WebSocketBrowserProxy, ...args: any[]) {
+  function customListener(this: WebSocketBrowserProxy, ...args: any[]) {
     if (event === 'message') {
       const [event] = args as [MessageEvent<string>]
       const data = event.data
@@ -85,7 +85,7 @@ function createMessageEvent(event: MessageEvent, payload: unknown) {
   })
 }
 
-async function customSend(this: WebSocketBrowserProxy, data: BufferLike) {
+function customSend(this: WebSocketBrowserProxy, data: BufferLike) {
   if (!this.identity) {
     logger.debug('Sending: jose not initialized', data)
     this.send(data)

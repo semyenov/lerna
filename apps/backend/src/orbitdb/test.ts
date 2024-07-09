@@ -7,9 +7,7 @@ export async function convertBytesToPKCS8(
   const key = await jose.importPKCS8(keyBytes, 'RS256')
 
   // Export the key to PKCS8 format
-  const pkcs8 = await jose.exportPKCS8(key)
-
-  return pkcs8
+  return await jose.exportPKCS8(key)
 }
 
 // Example usage

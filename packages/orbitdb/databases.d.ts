@@ -111,7 +111,6 @@ interface DatabasesTypeMap<T = unknown> {
   events: EventsInstance<T>
   keyvalue: KeyValueInstance<T> | KeyValueIndexedInstance<T>
 }
-// eslint-disable-next-line ts/consistent-type-definitions
 type Databases<T extends keyof DatabasesTypeMap, U extends DatabaseInstance> = {
   type: T
 

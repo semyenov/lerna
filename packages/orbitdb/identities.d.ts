@@ -13,7 +13,6 @@ interface IdentityProviderInstance {
   getId: (options: IdentityProviderGetIdOptions) => string
   signIdentity: (data: string, options: IdentityProviderGetIdOptions) => string
 }
-// eslint-disable-next-line ts/consistent-type-definitions
 type IdentityProvider<T extends string, U extends IdentityProviderInstance> = {
   (options: IdentityProviderOptions): U
   verifyIdentity: (data: any) => Promise<boolean>
