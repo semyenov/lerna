@@ -62,8 +62,7 @@ async function customOn(
         // logger.debug('Receiving payload"', { payload, event: newEvent })
 
         return listener.call(this, ...args)
-      }
-      catch (error) {
+      } catch {
         const newEvent = createMessageEvent(event, {})
 
         return listener.call(this, newEvent)

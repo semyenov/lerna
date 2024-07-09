@@ -16,10 +16,7 @@ const options = {
   audience: 'urn:example:audience',
 }
 
-export async function sign(
-  keyPair: KeyPair,
-  payload: JWTPayload,
-) {
+export async function sign(keyPair: KeyPair, payload: JWTPayload) {
   const { privateKey } = keyPair
   const { kid } = privateKey
 
@@ -39,11 +36,7 @@ export async function verify(
   keySet: JWTVerifyGetKey,
   verifyOptions?: VerifyOptions,
 ) {
-  const { payload } = await jwtVerify(
-    jwt,
-    keySet,
-    verifyOptions,
-  )
+  const { payload } = await jwtVerify(jwt, keySet, verifyOptions)
 
   return payload
 }
@@ -60,11 +53,15 @@ export async function secp256k1ToJoseJWK(keyPair: PrivateKeys): Promise<JWK> {
 
   const arrayLikeOptions = [Buffer, 'be', 32] as const
   const x = base64url.encode(
-    publicKey.getPublic().getX()
+    publicKey
+      .getPublic()
+      .getX()
       .toArrayLike(...arrayLikeOptions),
   )
   const y = base64url.encode(
-    publicKey.getPublic().getY()
+    publicKey
+      .getPublic()
+      .getY()
       .toArrayLike(...arrayLikeOptions),
   )
   const d = base64url.encode(
@@ -80,6 +77,6 @@ export async function secp256k1ToJoseJWK(keyPair: PrivateKeys): Promise<JWK> {
 
   return {
     publicKey: test,
-    privateKey: test.d = d,
+    privateKey: (test.d = d),
   }
 }

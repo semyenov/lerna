@@ -5,12 +5,9 @@ import { initTRPC } from '@trpc/server'
 import type { Context } from './context'
 
 const logger = createLogger()
-const t = initTRPC
-  .meta()
-  .context<Context>()
-  .create({
-    transformer,
-  })
+const t = initTRPC.meta().context<Context>().create({
+  transformer,
+})
 
 export const rootRouter = t.router
 

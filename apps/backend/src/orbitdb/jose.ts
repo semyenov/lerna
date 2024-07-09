@@ -6,7 +6,7 @@ import { createHelia } from 'helia'
 import * as jose from 'jose'
 import { createLibp2p } from 'libp2p'
 
-import { } from 'node:crypto'
+import {} from 'node:crypto'
 import { DefaultLibp2pOptions } from './config'
 
 const keysPath = './.out/keys'
@@ -37,7 +37,8 @@ logger.log('info', { privateJWK })
 const signKey = await jose.importJWK(privateJWK)
 logger.log('info', { importedJoseJWK: signKey })
 
-const jws = await new jose.SignJWT({ payload: 'test' }).setProtectedHeader({ alg: algorithm })
+const jws = await new jose.SignJWT({ payload: 'test' })
+  .setProtectedHeader({ alg: algorithm })
   .sign(signKey)
 logger.log('info', { jws })
 

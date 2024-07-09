@@ -1,7 +1,11 @@
 // src/logger.ts
 import { inspect } from 'node:util'
 
-import { createLogger as createWinstonLogger, format as f, transports as t } from 'winston'
+import {
+  createLogger as createWinstonLogger,
+  format as f,
+  transports as t,
+} from 'winston'
 
 import type { LoggerOptions } from 'winston'
 
@@ -54,19 +58,22 @@ export function createLogger(options?: LoggerOptions) {
           f.printf((log) => {
             const bagde = `. ${log.level}${log.label && `:${log.label}`}`
 
-            const name = log.service && log.version
-              && `\\ ${log.service}@${log.version}`
+            const name =
+              log.service && log.version && `\\ ${log.service}@${log.version}`
 
-            const time = log.timestamp
-              && `> ${log.timestamp.split('T')[1]}`
+            const time = log.timestamp && `> ${log.timestamp.split('T')[1]}`
 
-            const message = typeof log.message === 'string'
-              && log.message.length > 0
-              && `/ ${log.message}`
-            const stack = log.stack && log.message.length > 0
-              && log.stack.slice(log.stack.indexOf('\n') + 1)
-            const data = Object.keys(log.data).length > 0
-              && inspect(log.data, {
+            const message =
+              typeof log.message === 'string' &&
+              log.message.length > 0 &&
+              `/ ${log.message}`
+            const stack =
+              log.stack &&
+              log.message.length > 0 &&
+              log.stack.slice(log.stack.indexOf('\n') + 1)
+            const data =
+              Object.keys(log.data).length > 0 &&
+              inspect(log.data, {
                 breakLength: 80,
                 compact: true,
                 colors: true,
@@ -74,17 +81,8 @@ export function createLogger(options?: LoggerOptions) {
                 sorted: true,
               })
 
-            return [
-              bagde,
-              name,
-              time,
-              message,
-              stack,
-              data,
-            ].reduce(
-              (acc, line) => line
-                ? `${acc}\n${line}`
-                : acc,
+            return [bagde, name, time, message, stack, data].reduce(
+              (acc, line) => (line ? `${acc}\n${line}` : acc),
               '',
             )
           }),

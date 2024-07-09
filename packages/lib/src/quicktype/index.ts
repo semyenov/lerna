@@ -18,10 +18,12 @@ export async function quicktypeMultipleJSONSchema(
 ) {
   const jsonInput = new JSONSchemaInput(new FetchingJSONSchemaStore())
   await Promise.all(
-    data.map(({ name, schema }) => jsonInput.addSource({
-      name,
-      schema,
-    })),
+    data.map(({ name, schema }) =>
+      jsonInput.addSource({
+        name,
+        schema,
+      }),
+    ),
   )
 
   const inputData = new InputData()

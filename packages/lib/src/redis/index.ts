@@ -1,6 +1,4 @@
-import {
-  createClient,
-} from 'redis'
+import { createClient } from 'redis'
 
 import type {
   RedisClientOptions,
@@ -9,7 +7,9 @@ import type {
   RedisScripts,
 } from 'redis'
 
-export async function createRedisStore(options: RedisClientOptions<RedisModules, RedisFunctions, RedisScripts>) {
+export async function createRedisStore(
+  options: RedisClientOptions<RedisModules, RedisFunctions, RedisScripts>,
+) {
   const connection = createClient(options)
   await connection.connect()
 
@@ -51,7 +51,7 @@ export async function createRedisStore(options: RedisClientOptions<RedisModules,
 
     const findOne = async (id: string) => {
       const pattern = formatPattern(id)
-      const item = await connection.json.get(pattern) as T
+      const item = (await connection.json.get(pattern)) as T
       if (!item) {
         return
       }
@@ -59,7 +59,7 @@ export async function createRedisStore(options: RedisClientOptions<RedisModules,
       return item as T
     }
     const findMany = async (...ids: string[]) => {
-      const pattern = ids.map(id => formatPattern(id))
+      const pattern = ids.map((id) => formatPattern(id))
       const items = await connection.json.mGet(pattern, '$')
 
       return items as T[]
@@ -72,7 +72,7 @@ export async function createRedisStore(options: RedisClientOptions<RedisModules,
       return true
     }
     const deleteMany = async (...ids: string[]) => {
-      const pattern = ids.map(id => formatPattern(id))
+      const pattern = ids.map((id) => formatPattern(id))
       await connection.del(pattern)
 
       return true
@@ -94,5 +94,9 @@ export async function createRedisStore(options: RedisClientOptions<RedisModules,
     }
   }
 
-  return { data: createCRUD('data'), schemas: createCRUD('schemas'), disconnect: () => connection.disconnect() }
+  return {
+    data: createCRUD('data'),
+    schemas: createCRUD('schemas'),
+    disconnect: () => connection.disconnect(),
+  }
 }

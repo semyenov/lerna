@@ -17,8 +17,8 @@ function generateCombinations(test: { [key: string]: string[] }): string[][] {
 
     const key = keys[index]
     const values = test[key]
-    for (let i = 0; i < values.length; i++) {
-      const newCurrent = current.concat(`${key}-${values[i]}`)
+    for (const value of values) {
+      const newCurrent = current.concat(`${key}-${value}`)
       generate(newCurrent, index + 1)
     }
   }

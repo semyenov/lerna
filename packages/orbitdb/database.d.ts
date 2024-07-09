@@ -36,9 +36,9 @@ interface DatabaseInstance<T = unknown> {
   log: LogInstance<T>
   sync: SyncInstance<T>
 
-  addOperation(op: any): Promise<string>
-  close(): Promise<void>
-  drop(): Promise<void>
+  addOperation: (op: any) => Promise<string>
+  close: () => Promise<void>
+  drop: () => Promise<void>
 }
 declare function Database<T>(
   options: DatabaseOptions<T>,

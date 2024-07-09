@@ -2,6 +2,7 @@
   "name": "@regioni/root",
   "private": true,
   "npmClient": "yarn",
+  "packageManager": "yarn@4.3.1",
   "main": "./dist/index.cjs",
   "module": "./dist/index.mjs",
   "types": "./dist/index.d.cts",
@@ -18,6 +19,9 @@
   "scripts": {
     "build": "yarn lerna run build"
   },
+  "dependencies": {
+    "@regioni/foo": "workspace:*"
+  },
   "devDependencies": {
     "@lerna-lite/cli": "^3.7.0",
     "@lerna-lite/exec": "^3.7.0",
@@ -26,14 +30,12 @@
     "@lerna-lite/run": "^3.7.0",
     "@lerna-lite/version": "^3.7.0",
     "@lerna-lite/watch": "^3.7.0",
+    "@regioni/eslint-config": "workspace:*",
+    "eslint": "^9.6.0",
     "typescript": "^5.5.3"
-  },
-  "dependencies": {
-    "@regioni/foo": "workspace:*"
   },
   "workspaces": [
     "packages/*",
     "apps/*"
-  ],
-  "packageManager": "yarn@4.3.1"
+  ]
 }

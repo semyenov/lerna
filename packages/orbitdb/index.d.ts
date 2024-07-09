@@ -39,11 +39,11 @@ interface OrbitDBInstance {
   identity: IdentityInstance
   peerId: PeerId
 
-  open<T, D extends keyof DatabasesTypeMap>(
+  open: <T, D extends keyof DatabasesTypeMap>(
     address: string,
     options?: OrbitDBOpenOptions<D>,
-  ): Promise<DatabasesTypeMap<T>[D]>
-  stop(): Promise<void>
+  ) => Promise<DatabasesTypeMap<T>[D]>
+  stop: () => Promise<void>
 }
 declare function OrbitDB(options: OrbitDBOptions): Promise<OrbitDBInstance>
 

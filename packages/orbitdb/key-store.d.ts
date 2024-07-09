@@ -11,17 +11,17 @@ interface KeyStoreOptions {
   path?: string
 }
 interface KeyStoreInstance {
-  addKey(id: string, key: KeyObject): Promise<void>
-  clear(): Promise<void>
-  close(): Promise<void>
-  createKey(id: string): Promise<PrivateKeys>
-  getKey(id: string): Promise<Secp256k1PrivateKey>
-  getPublic(keys: PrivateKeys, options?: { format: 'hex' }): Promise<string>
-  getPublic(
+  addKey: (id: string, key: KeyObject) => Promise<void>
+  clear: () => Promise<void>
+  close: () => Promise<void>
+  createKey: (id: string) => Promise<PrivateKeys>
+  getKey: (id: string) => Promise<Secp256k1PrivateKey>
+  getPublic: ((
     keys: PrivateKeys,
-    options?: { format: 'buffer' },
-  ): Promise<Uint8Array>
-  hasKey(id: string): Promise<boolean>
+    options?: { format: 'hex' },
+  ) => Promise<string>) &
+    ((keys: PrivateKeys, options?: { format: 'buffer' }) => Promise<Uint8Array>)
+  hasKey: (id: string) => Promise<boolean>
 }
 declare function KeyStore(options?: KeyStoreOptions): Promise<KeyStoreInstance>
 

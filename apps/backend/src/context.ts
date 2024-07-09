@@ -13,9 +13,8 @@ export type CreateContextOptions =
   | CreateHTTPContextOptions
   | CreateWSSContextFnOptions
 
-export async function createContext(
-  _opts: CreateContextOptions,
-) {
+export async function createContext() {
+  // _opts: CreateContextOptions
   const ajv = await createAjv()
   const redis = await createRedisStore({
     url: 'redis://redis:6379',

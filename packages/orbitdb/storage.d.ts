@@ -1,11 +1,11 @@
 interface StorageInstance {
-  put(hash: string, data: any): Promise<void>
-  get(hash: string): Promise<any>
-  del(hash: string): Promise<void>
-  close(): Promise<void>
-  clear(): Promise<void>
-  iterator(): AsyncGenerator<[string, any]>
-  merge(other: StorageInstance): Promise<void>
+  put: (hash: string, data: any) => Promise<void>
+  get: (hash: string) => Promise<any>
+  del: (hash: string) => Promise<void>
+  close: () => Promise<void>
+  clear: () => Promise<void>
+  iterator: () => AsyncGenerator<[string, any]>
+  merge: (other: StorageInstance) => Promise<void>
 }
 
 interface ComposedStorageInstance extends StorageInstance {}
@@ -20,7 +20,7 @@ interface IPFSBlockStorageOptions {
   timeout?: number
 }
 interface IPFSBlockStorageInstance extends StorageInstance {
-  get(hash: string): Promise<Uint8Array>
+  get: (hash: string) => Promise<Uint8Array>
 }
 declare function IPFSBlockStorage(
   options: IPFSBlockStorageOptions,

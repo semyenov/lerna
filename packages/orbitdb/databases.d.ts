@@ -32,19 +32,19 @@ interface DocumentsOptions<T> {
 interface DocumentsInstance<T = unknown> extends DatabaseInstance<T> {
   type: 'documents'
 
-  all(): Promise<DocumentsDoc<T>[]>
+  all: () => Promise<DocumentsDoc<T>[]>
 
-  del(key: string): Promise<string>
+  del: (key: string) => Promise<string>
 
-  get(key: string): Promise<DocumentsDoc<T> | null>
+  get: (key: string) => Promise<DocumentsDoc<T> | null>
 
-  iterator(
+  iterator: (
     options?: DocumentsIteratorOptions,
-  ): AsyncGenerator<DocumentsDoc<T>, string>
+  ) => AsyncGenerator<DocumentsDoc<T>, string>
 
-  put(doc: T): Promise<string>
+  put: (doc: T) => Promise<string>
 
-  query(findFn: (doc: T) => boolean): Promise<T[]>
+  query: (findFn: (doc: T) => boolean) => Promise<T[]>
 }
 
 interface EventsDoc<T = unknown> {
@@ -63,13 +63,13 @@ interface EventsIteratorOptions {
 interface EventsInstance<T = unknown> extends DatabaseInstance<T> {
   type: 'events'
 
-  add(value: T): Promise<string>
+  add: (value: T) => Promise<string>
 
-  all(): Promise<Omit<EventsDoc<T>, 'key'>[]>
+  all: () => Promise<Omit<EventsDoc<T>, 'key'>[]>
 
-  get(hash: string): Promise<T | null>
+  get: (hash: string) => Promise<T | null>
 
-  iterator(options?: EventsIteratorOptions): AsyncGenerator<EventsDoc<T>>
+  iterator: (options?: EventsIteratorOptions) => AsyncGenerator<EventsDoc<T>>
 }
 
 interface KeyValueDoc<T = unknown> {
@@ -85,27 +85,26 @@ interface KeyValueIteratorOptions {
 interface KeyValueInstance<T = unknown> extends DatabaseInstance<T> {
   type: 'keyvalue'
 
-  all(): Promise<KeyValueDoc<T>[]>
+  all: () => Promise<KeyValueDoc<T>[]>
 
-  set(key: string, value: T): Promise<string>
+  set: (key: string, value: T) => Promise<string>
 
-  del(key: string): Promise<void>
+  del: (key: string) => Promise<void>
 
-  get(key: string): Promise<T | null>
+  get: (key: string) => Promise<T | null>
 
-  iterator(
+  iterator: (
     filters?: KeyValueIteratorOptions,
-  ): AsyncGenerator<KeyValueDoc<T>, string>
+  ) => AsyncGenerator<KeyValueDoc<T>, string>
 
-  put(key: string, value: T): Promise<string>
+  put: (key: string, value: T) => Promise<string>
 }
 
 interface KeyValueIndexedOptions {
   storage?: StorageInstance
 }
 
-interface KeyValueIndexedInstance<T = unknown> extends KeyValueInstance<T> {
-}
+interface KeyValueIndexedInstance<T = unknown> extends KeyValueInstance<T> {}
 
 interface DatabasesTypeMap<T = unknown> {
   documents: DocumentsInstance<T>
@@ -113,10 +112,7 @@ interface DatabasesTypeMap<T = unknown> {
   keyvalue: KeyValueInstance<T> | KeyValueIndexedInstance<T>
 }
 // eslint-disable-next-line ts/consistent-type-definitions
-type Databases<
-  T extends keyof DatabasesTypeMap,
-  U extends DatabaseInstance,
-> = {
+type Databases<T extends keyof DatabasesTypeMap, U extends DatabaseInstance> = {
   type: T
 
   (options: DatabaseOptions): Promise<U>
@@ -151,5 +147,5 @@ export type {
 export { Documents, Events, KeyValue, KeyValueIndexed }
 
 export function useDatabaseType<T = unknown>(
-  database: Databases<keyof DatabasesTypeMap, DatabaseInstance>
+  database: Databases<keyof DatabasesTypeMap, DatabaseInstance>,
 ): void

@@ -44,13 +44,15 @@ export async function createAjv() {
     absolute: true,
   })
 
-  const schemas = await Promise.all(files.map(async (file) => {
-    const fileContent = await readFile(file, 'utf8')
-    const schemaId = basename(file, '.json')
-    const schema = JSON.parse(fileContent) as AnySchemaObject
+  const schemas = await Promise.all(
+    files.map(async (file) => {
+      const fileContent = await readFile(file, 'utf8')
+      const schemaId = basename(file, '.json')
+      const schema = JSON.parse(fileContent) as AnySchemaObject
 
-    return { ...schema, $id: schemaId }
-  }))
+      return { ...schema, $id: schemaId }
+    }),
+  )
 
   ajvKeywords(ajv)
   ajvFormats(ajv)

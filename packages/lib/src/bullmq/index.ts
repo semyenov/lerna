@@ -1,10 +1,8 @@
 import { Queue } from 'bullmq'
 export * from './events'
 
-export const bullmq = new Queue<
-  { message: string },
-  { status: number }
->('appQueue',
+export const bullmq = new Queue<{ message: string }, { status: number }>(
+  'appQueue',
   {
     connection: {
       host: 'redis',

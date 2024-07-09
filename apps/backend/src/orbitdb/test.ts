@@ -1,6 +1,8 @@
 import * as jose from 'jose'
 
-export async function convertBytesToPKCS8(keyBytes: Uint8Array): Promise<string> {
+export async function convertBytesToPKCS8(
+  keyBytes: Uint8Array,
+): Promise<string> {
   // Import the key
   const key = await jose.importPKCS8(keyBytes, 'RS256')
 

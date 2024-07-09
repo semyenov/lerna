@@ -24,9 +24,12 @@ async function createUser() {
 async function deleteUser() {
   const login = 12
   // const login = await prompt('Enter user login to delete:')
-  const confirmation = await prompt(`Are you sure you want to delete user ${login}? (yes/no)`, {
-    type: 'confirm',
-  })
+  const confirmation = await prompt(
+    `Are you sure you want to delete user ${login}? (yes/no)`,
+    {
+      type: 'confirm',
+    },
+  )
   logger.log(confirmation)
 
   if (confirmation) {
@@ -34,22 +37,21 @@ async function deleteUser() {
 
     return login
     // Add your user deletion logic here
-  }
-  else {
+  } else {
     logger.log('Deletion cancelled.')
   }
 }
 
 async function mainMenu() {
   while (true) {
-    const res = await prompt('Test', {
+    const res = (await prompt('Test', {
       type: 'select',
       options: [
         { value: '1', label: 'Create user' },
         { value: '2', label: 'Delete user' },
         { value: '3', label: 'Exit' },
       ],
-    }) as unknown as string
+    })) as unknown as string
 
     switch (res) {
       case '1':

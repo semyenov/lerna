@@ -71,22 +71,19 @@ interface LogInstance<T> {
   identity: IdentityInstance
   storage: StorageInstance
 
-  clock(): Promise<Clock>
-  heads(): Promise<Entry.Instance<T>[]>
-  values(): Promise<Entry.Instance<T>[]>
-  all(): Promise<Entry.Instance<T>[]>
-  get(hash: string): Promise<Entry.Instance<T> | undefined>
+  clock: () => Promise<Clock>
+  heads: () => Promise<Entry.Instance<T>[]>
+  values: () => Promise<Entry.Instance<T>[]>
+  all: () => Promise<Entry.Instance<T>[]>
+  get: (hash: string) => Promise<Entry.Instance<T> | undefined>
   has: (hash: string) => Promise<boolean>
-  append(
-    payload: T,
-    options?: LogAppendOptions,
-  ): Promise<Entry.Instance<T>>
-  join(log: LogInstance<T>): Promise<void>
-  joinEntry(entry: Entry.Instance<T>): Promise<void>
-  traverse(): AsyncGenerator<Entry.Instance<T>>
-  iterator(options?: LogIteratorOptions): AsyncIterable<Entry.Instance<T>>
-  clear(): Promise<void>
-  close(): Promise<void>
+  append: (payload: T, options?: LogAppendOptions) => Promise<Entry.Instance<T>>
+  join: (log: LogInstance<T>) => Promise<void>
+  joinEntry: (entry: Entry.Instance<T>) => Promise<void>
+  traverse: () => AsyncGenerator<Entry.Instance<T>>
+  iterator: (options?: LogIteratorOptions) => AsyncIterable<Entry.Instance<T>>
+  clear: () => Promise<void>
+  close: () => Promise<void>
 }
 declare function Log<T>(
   ipfs: IPFS,

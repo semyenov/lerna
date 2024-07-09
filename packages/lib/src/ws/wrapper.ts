@@ -51,7 +51,7 @@ async function customOn(
 
   async function customListener(this: WebSocketProxy, ...args: any[]) {
     if (event === 'message') {
-      const [_data, isBinary] = args as | [BufferLike, boolean]
+      const [_data, isBinary] = args as [BufferLike, boolean]
 
       // if (!this.jose) {
       //   logger.debug('Receiving: jose not initialized', data)
@@ -69,8 +69,7 @@ async function customOn(
         //   JSON.stringify(data.toString()),
         //   isBinary,
         // )
-      }
-      catch (e) {
+      } catch {
         return listener.call(
           this,
           // JSON.stringify({ ...jws, ...(payload as object) }),

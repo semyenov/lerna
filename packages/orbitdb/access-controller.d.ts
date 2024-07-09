@@ -15,14 +15,10 @@ interface AccessControllerOptions {
 }
 
 interface AccessControllerInstance {
-  canAppend(entry: Entry.Instance): Promise<boolean>
+  canAppend: (entry: Entry.Instance) => Promise<boolean>
 }
 
-// eslint-disable-next-line ts/consistent-type-definitions
-type AccessController<
-  T extends string,
-  U extends AccessControllerInstance,
-> = {
+type AccessController<T extends string, U extends AccessControllerInstance> = {
   type: T
   (options: AccessControllerOptions): Promise<U>
 }
@@ -39,13 +35,13 @@ declare const IPFSAccessController: (
 interface OrbitDBAccessControllerInstance extends AccessControllerInstance {
   events: DatabaseEvents
 
-  close(): Promise<void>
-  drop(): Promise<void>
-  capabilities(): Promise<string[]>
-  get(capability: string): Promise<string[]>
-  grant(capability: string, key: string): Promise<void>
-  hasCapability(capability: string, key: string): Promise<boolean>
-  revoke(capability: string, key: string): Promise<void>
+  close: () => Promise<void>
+  drop: () => Promise<void>
+  capabilities: () => Promise<string[]>
+  get: (capability: string) => Promise<string[]>
+  grant: (capability: string, key: string) => Promise<void>
+  hasCapability: (capability: string, key: string) => Promise<boolean>
+  revoke: (capability: string, key: string) => Promise<void>
 }
 
 declare const OrbitDBAccessController: (

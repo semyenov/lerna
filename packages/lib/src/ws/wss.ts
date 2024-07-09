@@ -10,7 +10,11 @@ const logger = consola.withTag('wss')
 
 export class WebSocketServerProxy extends WebSocketServer {
   identity?: IdentityInstance
-  public constructor(options?: ServerOptions, identity?: IdentityInstance, callback?: () => void) {
+  public constructor(
+    options?: ServerOptions,
+    identity?: IdentityInstance,
+    callback?: () => void,
+  ) {
     super(options, callback)
     this.identity = identity
     logger.info('new WebSocketServer', identity)

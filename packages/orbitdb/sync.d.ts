@@ -16,7 +16,7 @@ interface SyncInstance<T> {
 
   start: () => Promise<void>
   stop: () => Promise<void>
-  add(entry: Entry.Instance<T>): void
+  add: (entry: Entry.Instance<T>) => void
 }
 declare function Sync<T>(options: SyncOptions<T>): Promise<SyncInstance<T>>
 

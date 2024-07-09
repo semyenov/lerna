@@ -4,9 +4,9 @@ import { applyWSSHandler } from '@trpc/server/adapters/ws'
 import consola from 'consola'
 
 import { createContext } from './context'
-import { router } from './router'
+import { type Router, router } from './router'
 
-import type { Router } from './router'
+// import type { Router } from './router'
 
 export * from './router'
 

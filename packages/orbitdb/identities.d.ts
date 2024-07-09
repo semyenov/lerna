@@ -14,10 +14,7 @@ interface IdentityProviderInstance {
   signIdentity: (data: string, options: IdentityProviderGetIdOptions) => string
 }
 // eslint-disable-next-line ts/consistent-type-definitions
-type IdentityProvider<
-  T extends string,
-  U extends IdentityProviderInstance,
-> = {
+type IdentityProvider<T extends string, U extends IdentityProviderInstance> = {
   (options: IdentityProviderOptions): U
   verifyIdentity: (data: any) => Promise<boolean>
   type: T
@@ -27,7 +24,7 @@ interface IdentityOptions {
   id: string
   type: string
   publicKey: string
-  signatures: { id: string, publicKey: string }
+  signatures: { id: string; publicKey: string }
 
   sign?: (data: any) => Promise<string>
   verify?: (data: any, signature: string) => Promise<boolean>
@@ -36,9 +33,7 @@ interface IdentityInstance extends IdentityOptions {
   hash: string
   bytes: Uint8Array
 }
-declare function Identity(
-  options: IdentityOptions,
-): Promise<IdentityInstance>
+declare function Identity(options: IdentityOptions): Promise<IdentityInstance>
 
 interface IdentitiesCreateIdentityOptions {
   id?: string
@@ -52,7 +47,9 @@ interface IdentitiesOptions {
   storage?: StorageInstance
 }
 interface IdentitiesInstance {
-  createIdentity: (options?: IdentitiesCreateIdentityOptions) => Promise<IdentityInstance>
+  createIdentity: (
+    options?: IdentitiesCreateIdentityOptions,
+  ) => Promise<IdentityInstance>
   getIdentity: (id: string) => Promise<IdentityInstance>
   verifyIdentity: (identity: IdentityInstance) => Promise<boolean>
   keystore: KeyStoreInstance
@@ -70,7 +67,10 @@ declare function Identities(
   options?: IdentitiesOptions,
 ): Promise<IdentitiesInstance>
 
-declare const PublicKeyIdentityProvider: IdentityProvider<'publickey', IdentityProviderInstance>
+declare const PublicKeyIdentityProvider: IdentityProvider<
+  'publickey',
+  IdentityProviderInstance
+>
 
 export type {
   IdentitiesCreateIdentityOptions,
@@ -84,7 +84,9 @@ export type {
 export { Identities, Identity, PublicKeyIdentityProvider }
 
 export function getIdentityProvider(type: string): IdentityProviderInstance
-export function useIdentityProvider(identityProvider: IdentityProvider<string, IdentityProviderInstance>): void
+export function useIdentityProvider(
+  identityProvider: IdentityProvider<string, IdentityProviderInstance>,
+): void
 export function decodeIdentity(bytes: Uint8Array): Promise<IdentityInstance>
 export function isIdentity(identity: any): boolean
 export function isEqual(
