@@ -51,7 +51,7 @@ function customOn(
 
   function customListener(this: WebSocketProxy, ...args: any[]) {
     if (event === 'message') {
-      const [_data, isBinary] = args as [BufferLike, boolean]
+      const [isBinary] = args as [BufferLike, boolean]
 
       // if (!this.jose) {
       //   logger.debug('Receiving: jose not initialized', data)

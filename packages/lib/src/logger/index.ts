@@ -56,6 +56,7 @@ export function createLogger(options?: LoggerOptions) {
             },
           }),
           f.printf((log) => {
+            // eslint-disable-next-line sonarjs/no-nested-template-literals
             const bagde = `. ${log.level}${log.label && `:${log.label}`}`
 
             const name =
