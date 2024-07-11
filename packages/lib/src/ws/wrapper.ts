@@ -1,9 +1,9 @@
 import consola from 'consola'
 
-// import { sign, verify } from '../jose/sign'
+import { sign, verify } from '../jose/sign'
 
 import type { WebSocketProxy } from './ws'
-import type { IdentityInstance } from '@orbitdb/core'
+import type { IJoseVerify } from '../jose/types'
 import type Buffer from 'node:buffer'
 
 type BufferLike =
@@ -25,9 +25,8 @@ type BufferLike =
   | { [Symbol.toPrimitive]: (hint: string) => string }
 
 const logger = consola.withTag('ws')
-export function wrapSocket<T>(ws: WebSocketProxy, identity?: IdentityInstance) {
-  ws.identity = identity
-
+export function wrapSocket<T>(ws: WebSocketProxy, jose?: IJoseVerify) {
+  ws.jose = jose
   return new Proxy(ws, {
     get: (target, prop, receiver) => {
       switch (prop) {
@@ -49,26 +48,26 @@ function customOn(
 ) {
   return this.on(event, customListener)
 
-  function customListener(this: WebSocketProxy, ...args: any[]) {
+  async function customListener(this: WebSocketProxy, ...args: any[]) {
     if (event === 'message') {
-      const [isBinary] = args as [BufferLike, boolean]
+      const [data, isBinary] = args as [BufferLike, boolean]
 
-      // if (!this.jose) {
-      //   logger.debug('Receiving: jose not initialized', data)
+      if (!this.jose) {
+        logger.debug('Receiving: jose not initialized', data)
 
-      //   return listener.call(this, data, isBinary)
-      // }
+        return listener.call(this, data, isBinary)
+      }
       try {
-        // const { payload, ..._jws } = await verify(data.toString(), this.jose.jwks)
+        const { payload } = await verify(data.toString(), this.jose.jwks)
 
-        // logger.debug('Receiving payload"', { payload })
-        listener.call(this, ...args)
-        // return listener.call(
-        //   this,
-        //   // JSON.stringify({ ...jws, ...(payload as object) }),
-        //   JSON.stringify(data.toString()),
-        //   isBinary,
-        // )
+        logger.debug('Receiving payload"', { payload })
+
+        return listener.call(
+          this,
+          // JSON.stringify({ ...jws, ...(payload as object) }),
+          JSON.stringify(payload),
+          isBinary,
+        )
       } catch {
         return listener.call(
           this,
@@ -85,24 +84,23 @@ function customOn(
   }
 }
 
-function customSend(
+async function customSend(
   this: WebSocketProxy,
   data: BufferLike,
   cb?: (error?: Error) => void,
 ) {
-  // if (!this.jose) {
-  //   logger.debug('Sending: jose not initialized', data)
+  if (!this.jose) {
+    logger.debug('Sending: jose not initialized', data)
+    return this.send(data, cb)
+  }
 
-  //   return this.send(data, cb)
-  // }
+  logger.debug('Signing payload: ', { payload: data, jose: this.jose })
 
-  // logger.debug('Signing payload: ', { payload: data, jose: this.jose })
+  const jws = await sign(this.jose.key, {
+    payload: JSON.parse(data.toString()),
+  })
 
-  // const jws = await sign(this.jose.key, {
-  //   payload: JSON.parse(data.toString()),
-  // })
+  logger.debug('Sending', jws)
 
-  // logger.debug('Sending', jws)
-
-  this.send(data, cb)
+  this.send(jws, cb)
 }

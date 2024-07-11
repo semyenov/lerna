@@ -3,21 +3,21 @@ import { WebSocketServer } from 'ws'
 
 import { wrapSocket } from './wrapper'
 
-import type { IdentityInstance } from '@orbitdb/core'
+import type { IJoseVerify } from '../jose/types'
 import type { ServerOptions, WebSocket } from 'ws'
 
 const logger = consola.withTag('wss')
 
 export class WebSocketServerProxy extends WebSocketServer {
-  identity?: IdentityInstance
+  jose?: IJoseVerify
   public constructor(
     options?: ServerOptions,
-    identity?: IdentityInstance,
+    jose?: IJoseVerify,
     callback?: () => void,
   ) {
     super(options, callback)
-    this.identity = identity
-    logger.info('new WebSocketServer', identity)
+    this.jose = jose
+    logger.info('new WebSocketServer', jose)
 
     return wrapSocketServer(this)
   }
@@ -43,7 +43,7 @@ function customOn(
   this.on(event, (...args: any[]) => {
     if (event === 'connection') {
       logger.info('Connection')
-      args[0] = wrapSocket(args[0] as WebSocket, this.identity)
+      args[0] = wrapSocket(args[0] as WebSocket, this.jose)
     }
 
     listener.call(this, ...args)

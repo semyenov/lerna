@@ -2,20 +2,18 @@ import { WebSocket as WebSocketNode } from 'ws'
 
 import { wrapSocket } from './wrapper'
 
-// import type { IJoseVerify } from '../jose/types'
-import type { IdentityInstance } from '@orbitdb/core'
+import type { IJoseVerify } from '../jose/types'
 import type { ClientOptions } from 'ws'
 
 export class WebSocketProxy extends WebSocketNode {
-  public identity?: IdentityInstance
+  public jose?: IJoseVerify
   public constructor(
     address: string | URL,
     protocols?: string | string[],
     options?: ClientOptions,
-    identity?: IdentityInstance,
+    jose?: IJoseVerify,
   ) {
     super(address, protocols, options)
-
-    return wrapSocket(this, identity)
+    return wrapSocket(this, jose)
   }
 }
