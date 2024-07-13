@@ -16,7 +16,12 @@ const id = 'userA'
 const keysPath = './.out/keys'
 const options = DefaultLibp2pOptions
 
-const logger = createLogger()
+const logger = createLogger({
+  defaultMeta: {
+    service: 'orbitdb',
+    label: 'keystore',
+  },
+})
 
 const ipfs = await createHelia({
   libp2p: await createLibp2p({ ...options }),
@@ -51,10 +56,10 @@ const db = await orbit.open('test', {
 })
 const d: number = 4
 if (d === 1 || d === 3) {
-  console.log('d is 1')
+  logger.info('d is 1')
 }
 if (d === 2) {
-  console.log('d is 2')
+  logger.info('d is 2')
 }
 
 for (let i = 0; i < 10; i++) {

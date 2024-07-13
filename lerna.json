@@ -2,16 +2,15 @@
   "$schema": "https://raw.githubusercontent.com/lerna-lite/lerna-lite/main/packages/cli/schemas/lerna-schema.json",
   "npmClient": "yarn",
   "version": "0.0.2",
-  "packages": [
-    "packages/*",
-    "apps/*"
-  ],
+  "packages": ["packages/*", "apps/*"],
   "command": {
     "run": {
       "script": "build",
-      "concurrency": 10,
+      "concurrency": 8,
       "parallel": true,
-      "loglevel": "info"
+      "loglevel": "info",
+      "sort": true,
+      "yes": true
     }
   },
   "useWorkspaces": true

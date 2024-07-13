@@ -1,4 +1,4 @@
-import type { GenerateKeyPairResult, JWK, JWTVerifyGetKey, KeyLike } from 'jose'
+import type { GenerateKeyPairResult, JWTVerifyGetKey, KeyLike } from 'jose'
 
 export type KeyPair = GenerateKeyPairResult<KeyLike>
 

@@ -8,7 +8,7 @@
   "keywords": [],
   "license": "MIT",
   "homepage": "https://gitea.local/regioni/backend#readme",
-  "bugs": "https://gitea.local/semyenov/rollup-build/issues",
+  "bugs": "https://gitea.local/regioni/backend/issues",
   "repository": {
     "type": "git",
     "url": "git+https://gitea.local/regioni/backend.git"

@@ -1,4 +1,4 @@
-import { secp256k1ToJWK, sign } from '@regioni/lib/jose'
+import { secp256k1ToJWK } from '@regioni/lib/jose'
 import { createLogger } from '@regioni/lib/logger'
 import { KeyStore } from '@regioni/lib/orbit'
 import {
@@ -19,7 +19,7 @@ import {
 } from './errors'
 
 import type { User } from './schema'
-import type { KeyStoreInstance } from 'packages/orbitdb'
+import type { KeyStoreInstance } from '@orbitdb/core'
 
 export interface UserStoreOptions {}
 
