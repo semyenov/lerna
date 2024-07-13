@@ -1,6 +1,7 @@
 import { consola as logger } from 'consola'
 
-import { type UserStoreInstance, UsersStore } from './modules/users/lib/store'
+import { ErrorUserNotFound } from './modules/users/errors'
+import { type UserStoreInstance, UsersStore } from './modules/users/store'
 
 const usersPath = './.out/users'
 const prompt = logger.prompt.bind(logger)
@@ -11,7 +12,7 @@ async function createUser(userStore: UserStoreInstance) {
     initial: 'semyenov',
   })
 
-  const user = await userStore.put(id, {
+  const user = await userStore.createUser(id, {
     id,
     hash: '',
     namespace: 'users',
@@ -19,14 +20,13 @@ async function createUser(userStore: UserStoreInstance) {
     version: '1',
 
     info: {
-      name: id,
+      name: `User ${id}`,
       description: 'user description',
       legend: `${id}@regioni.io`,
     },
 
     roles: ['admin'],
     status: 'active',
-    keys: [],
 
     createdAt: new Date(),
     updatedAt: new Date(),
@@ -41,23 +41,21 @@ async function deleteUser(userStore: UserStoreInstance) {
     initial: 'semyenov',
   })
 
-  const user = await userStore.get(id)
-
+  const user = await userStore.getUser(id)
   if (!user) {
-    logger.log(`User ${id} not found.`)
-    return
+    throw ErrorUserNotFound
   }
 
   const confirmation = await prompt(
     `Are you sure you want to delete user ${id}? (yes/no)`,
-    { type: 'confirm' },
+    { type: 'confirm', initial: true },
   )
 
   if (!confirmation) {
     return
   }
 
-  await userStore.del(id)
+  await userStore.removeUser(id)
 }
 
 async function getUser(userStore: UserStoreInstance) {
@@ -66,7 +64,7 @@ async function getUser(userStore: UserStoreInstance) {
     initial: 'semyenov',
   })
 
-  const user = await userStore.get(id)
+  const user = await userStore.getUser(id)
   logger.info('getUser:', { user })
 }
 

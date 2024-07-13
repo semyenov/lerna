@@ -21,7 +21,6 @@ export function createLogger(options?: LoggerOptions) {
 
     format: f.combine(
       f.timestamp(),
-      f.label({ label: 'label' }),
       f.errors({
         stack: true,
         inspect: false,
@@ -30,7 +29,6 @@ export function createLogger(options?: LoggerOptions) {
         key: 'data',
         fillExcept: [
           'stack',
-          'service',
           'version',
           'message',
           'label',
@@ -100,6 +98,7 @@ export function createLogger(options?: LoggerOptions) {
         format: f.json(),
       }),
     ],
+
     ...options,
   })
 }
