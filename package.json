@@ -33,7 +33,9 @@
     "@lerna-lite/watch": "^3.7.0",
     "@regioni/eslint-config": "workspace:*",
     "@types/node": "^20.14.10",
+    "@types/semver": "^7",
     "eslint": "^9.6.0",
+    "semver": "^7.6.2",
     "tsx": "^4.16.2",
     "typescript": "^5.5.3"
   },
