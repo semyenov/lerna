@@ -1,6 +1,6 @@
 {
   "name": "@types/orbitdb__core",
-  "version": "0.0.1",
+  "version": "2.2.0",
   "private": true,
   "types": "index.d.ts"
 }
