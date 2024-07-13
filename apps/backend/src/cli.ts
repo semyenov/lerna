@@ -8,7 +8,7 @@ const prompt = logger.prompt.bind(logger)
 async function createUser(userStore: UserStoreInstance) {
   const id = await prompt('Enter user id:', {
     type: 'text',
-    initial: 'id',
+    initial: 'semyenov',
   })
 
   const user = await userStore.put(id, {
@@ -38,6 +38,7 @@ async function createUser(userStore: UserStoreInstance) {
 async function deleteUser(userStore: UserStoreInstance) {
   const id = await prompt('Enter user id to delete:', {
     type: 'text',
+    initial: 'semyenov',
   })
 
   const user = await userStore.get(id)
@@ -49,9 +50,7 @@ async function deleteUser(userStore: UserStoreInstance) {
 
   const confirmation = await prompt(
     `Are you sure you want to delete user ${id}? (yes/no)`,
-    {
-      type: 'confirm',
-    },
+    { type: 'confirm' },
   )
 
   if (!confirmation) {
@@ -59,6 +58,16 @@ async function deleteUser(userStore: UserStoreInstance) {
   }
 
   await userStore.del(id)
+}
+
+async function getUser(userStore: UserStoreInstance) {
+  const id = await prompt('Enter user id:', {
+    type: 'text',
+    initial: 'semyenov',
+  })
+
+  const user = await userStore.get(id)
+  logger.info('getUser:', { user })
 }
 
 async function run() {
@@ -70,7 +79,8 @@ async function run() {
       options: [
         { value: '1', label: 'Create user' },
         { value: '2', label: 'Delete user' },
-        { value: '3', label: 'Exit' },
+        { value: '3', label: 'Get user' },
+        { value: '4', label: 'Exit' },
       ],
     })) as any as string
 
@@ -82,10 +92,10 @@ async function run() {
         await deleteUser(userStore)
         break
       case '3':
-        logger.log('Exiting program. Goodbye!')
-
-        return
+        await getUser(userStore)
+        break
       default:
+        logger.log('Exiting program. Goodbye!')
         return
     }
   }

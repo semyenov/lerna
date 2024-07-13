@@ -2836,6 +2836,7 @@ __metadata:
     superjson: "npm:^2.2.1"
     typescript: "npm:^5.5.3"
     typescript-json-schema: "npm:0.64.0"
+    uint8arrays: "npm:^5.1.0"
     unstorage: "npm:^1.10.2"
     winston: "npm:^3.13.0"
     ws: "npm:^8.18.0"
@@ -2856,7 +2857,9 @@ __metadata:
     "@lerna-lite/watch": "npm:^3.7.0"
     "@regioni/eslint-config": "workspace:*"
     "@regioni/foo": "workspace:*"
+    "@types/node": "npm:^20.14.10"
     eslint: "npm:^9.6.0"
+    tsx: "npm:^4.16.2"
     typescript: "npm:^5.5.3"
   languageName: unknown
   linkType: soft
