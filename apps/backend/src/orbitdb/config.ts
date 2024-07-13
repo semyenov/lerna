@@ -15,7 +15,13 @@ export const DefaultLibp2pOptions: Libp2pOptions = {
   addresses: {
     listen: ['/ip4/127.0.0.1/tcp/0/ws'],
   },
-  peerDiscovery: [mdns()],
+  peerDiscovery: [
+    mdns({
+      broadcast: true,
+      serviceTag: 'libp2p.io',
+      peerName: 'regioni.io',
+    }),
+  ],
   transports: [
     tcp(),
     webRTC(),

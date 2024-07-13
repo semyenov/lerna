@@ -17,7 +17,8 @@
     }
   },
   "scripts": {
-    "build": "yarn lerna run build"
+    "build": "lerna run build",
+    "lint": "eslint"
   },
   "dependencies": {
     "@regioni/foo": "workspace:*"

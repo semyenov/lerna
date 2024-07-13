@@ -113,7 +113,11 @@ export {
 
 export { Entry, Log } from './log'
 
-export type { StorageInstance }
+export type {
+  StorageInstance,
+  LevelStorageInstance,
+  LevelStorageOptions,
+} from './storage'
 export {
   ComposedStorage,
   IPFSBlockStorage,

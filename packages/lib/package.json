@@ -20,47 +20,63 @@
   "exports": {
     "./ajv": {
       "types": "./dist/ajv/index.d.ts",
-      "import": "./dist/ajv/index.js"
+      "require": "./dist/ajv/index.cjs",
+      "import": "./dist/ajv/index.mjs"
     },
     "./bullmq": {
       "types": "./dist/bullmq/index.d.ts",
-      "import": "./dist/bullmq/index.js"
+      "require": "./dist/bullmq/index.cjs",
+      "import": "./dist/bullmq/index.mjs"
     },
     "./jose": {
       "types": "./dist/jose/index.d.ts",
-      "import": "./dist/jose/index.js"
+      "require": "./dist/jose/index.cjs",
+      "import": "./dist/jose/index.mjs"
+    },
+    "./orbit": {
+      "types": "./dist/orbit/index.d.ts",
+      "require": "./dist/orbit/index.cjs",
+      "import": "./dist/orbit/index.mjs"
     },
     "./logger": {
       "types": "./dist/logger/index.d.ts",
-      "import": "./dist/logger/index.js"
+      "require": "./dist/logger/index.cjs",
+      "import": "./dist/logger/index.mjs"
     },
     "./mongodb": {
       "types": "./dist/mongodb/index.d.ts",
-      "import": "./dist/mongodb/index.js"
+      "require": "./dist/mongodb/index.cjs",
+      "import": "./dist/mongodb/index.mjs"
     },
     "./quicktype": {
       "types": "./dist/quicktype/index.d.ts",
-      "import": "./dist/quicktype/index.js"
+      "require": "./dist/quicktype/index.cjs",
+      "import": "./dist/quicktype/index.mjs"
     },
     "./redis": {
       "types": "./dist/redis/index.d.ts",
-      "import": "./dist/redis/index.js"
+      "require": "./dist/redis/index.cjs",
+      "import": "./dist/redis/index.mjs"
     },
     "./superjson": {
       "types": "./dist/superjson/index.d.ts",
-      "import": "./dist/superjson/index.js"
+      "require": "./dist/superjson/index.cjs",
+      "import": "./dist/superjson/index.mjs"
     },
     "./transformer": {
       "types": "./dist/transformer/index.d.ts",
-      "import": "./dist/transformer/index.js"
+      "require": "./dist/transformer/index.cjs",
+      "import": "./dist/transformer/index.mjs"
     },
     "./ws": {
       "types": "./dist/ws/index.d.ts",
-      "import": "./dist/ws/index.js"
+      "require": "./dist/ws/index.cjs",
+      "import": "./dist/ws/index.mjs"
     },
     "./ws/browser": {
       "types": "./dist/ws/browser.d.ts",
-      "import": "./dist/ws/browser.js"
+      "require": "./dist/ws/browser.cjs",
+      "import": "./dist/ws/browser.mjs"
     }
   },
   "sideEffects": false,
@@ -74,38 +90,37 @@
     "lint": "yarn eslint --config eslint.config.js",
     "clean": "yarn exec rm -rf src"
   },
-  "peerDependencies": {
+  "dependencies": {
+    "@libp2p/crypto": "^4.1.5",
+    "@msgpack/msgpack": "^3.0.0-beta2",
     "@orbitdb/core": "^2.2.0",
     "@trpc/server": "^10.45.2",
     "@types/orbitdb__core": "workspace:^",
-    "libp2p": "^1.7.0",
-    "zod": "^3.22.4"
-  },
-  "dependencies": {
     "ajv": "^8.16.0",
     "ajv-errors": "^3.0.0",
     "ajv-formats": "^3.0.1",
     "ajv-i18n": "^4.2.0",
     "ajv-keywords": "^5.1.0",
     "bullmq": "^5.8.4",
+    "chokidar": "^3.6.0",
+    "consola": "^3.2.3",
     "elliptic": "^6.5.5",
     "fast-glob": "^3.3.2",
     "helia": "^4.2.4",
     "jose": "^5.6.3",
+    "libp2p": "^1.7.0",
     "mongodb": "^6.8.0",
     "quicktype-core": "^23.0.170",
     "redis": "^4.6.15",
     "superjson": "^2.2.1",
+    "unstorage": "^1.10.2",
     "winston": "^3.13.0",
-    "ws": "^8.18.0"
+    "ws": "^8.18.0",
+    "zod": "^3.22.4"
   },
   "devDependencies": {
-    "@trpc/server": "^10.45.2",
     "@types/events": "^3.0.3",
     "@types/orbitdb__core": "workspace:^",
-    "esno": "^4.7.0",
-    "events": "^3.3.0",
-    "libp2p": "^1.8.0",
     "pkgroll": "^2.1.1",
     "typescript": "^5.5.3",
     "typescript-json-schema": "0.64.0",

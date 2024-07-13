@@ -95,7 +95,7 @@ async function customSend(this: WebSocketBrowserProxy, data: BufferLike) {
 
   logger.debug('Signing payload: ', { payload: data, jose: this.jose })
 
-  const jws = await sign(this.jose.key, {
+  const jws = await sign(this.jose.key.privateKey, {
     payload: JSON.parse(data.toString()),
   })
 

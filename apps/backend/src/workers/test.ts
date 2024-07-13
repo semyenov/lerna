@@ -15,8 +15,11 @@ function generateCombinations(test: { [key: string]: string[] }): string[][] {
       return
     }
 
+    // eslint-disable-next-line security/detect-object-injection
     const key = keys[index]
+    // eslint-disable-next-line security/detect-object-injection
     const values = test[key]
+
     for (const value of values) {
       const newCurrent = current.concat(`${key}-${value}`)
       generate(newCurrent, index + 1)

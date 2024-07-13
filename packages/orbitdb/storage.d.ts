@@ -1,10 +1,10 @@
-interface StorageInstance {
+interface StorageInstance<T> {
   put: (hash: string, data: any) => Promise<void>
-  get: (hash: string) => Promise<any>
+  get: (hash: string) => Promise<T>
   del: (hash: string) => Promise<void>
   close: () => Promise<void>
   clear: () => Promise<void>
-  iterator: () => AsyncGenerator<[string, any]>
+  iterator: () => AsyncGenerator<[string, T]>
   merge: (other: StorageInstance) => Promise<void>
 }
 
@@ -38,10 +38,10 @@ interface LevelStorageOptions {
   path?: string
   valueEncoding?: string
 }
-interface LevelStorageInstance extends StorageInstance {}
-declare function LevelStorage(
+interface LevelStorageInstance<T> extends StorageInstance<T> {}
+declare function LevelStorage<T = unknown>(
   options?: LevelStorageOptions,
-): Promise<LevelStorageInstance>
+): Promise<LevelStorageInstance<T>>
 
 interface MemoryStorageInstance extends StorageInstance {}
 declare function MemoryStorage(): Promise<MemoryStorageInstance>
@@ -59,6 +59,7 @@ type StorageType = keyof StorageTypeMap
 export type {
   ComposedStorageInstance,
   IPFSBlockStorageInstance,
+  LevelStorageOptions,
   LevelStorageInstance,
   LRUStorageInstance,
   MemoryStorageInstance,

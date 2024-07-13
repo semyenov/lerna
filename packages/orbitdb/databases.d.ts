@@ -1,5 +1,5 @@
 import type { AccessControllerInstance } from './access-controller'
-import type { DatabaseInstance } from './database'
+import type { DatabaseInstance as IDatabase } from './database'
 import type { IdentitiesInstance, IdentityInstance } from './identities'
 import type { OrbitDBInstance } from './index'
 import type { StorageInstance } from './storage'
@@ -29,7 +29,7 @@ interface DocumentsOptions<T> {
   indexBy?: keyof T
 }
 
-interface DocumentsInstance<T = unknown> extends DatabaseInstance<T> {
+interface IDocuments<T = unknown> extends IDatabase<T> {
   type: 'documents'
 
   all: () => Promise<DocumentsDoc<T>[]>
@@ -60,7 +60,7 @@ interface EventsIteratorOptions {
   amount?: number
 }
 
-interface EventsInstance<T = unknown> extends DatabaseInstance<T> {
+interface EventsInstance<T = unknown> extends IDatabase<T> {
   type: 'events'
 
   add: (value: T) => Promise<string>
@@ -82,15 +82,11 @@ interface KeyValueIteratorOptions {
   amount?: number
 }
 
-interface KeyValueInstance<T = unknown> extends DatabaseInstance<T> {
+interface IKeyValue<T = unknown> extends IDatabase<T> {
   type: 'keyvalue'
-
   all: () => Promise<KeyValueDoc<T>[]>
-
   set: (key: string, value: T) => Promise<string>
-
   del: (key: string) => Promise<void>
-
   get: (key: string) => Promise<T | null>
 
   iterator: (
@@ -104,14 +100,14 @@ interface KeyValueIndexedOptions {
   storage?: StorageInstance
 }
 
-interface KeyValueIndexedInstance<T = unknown> extends KeyValueInstance<T> {}
+interface KeyValueIndexedInstance<T = unknown> extends IKeyValue<T> {}
 
 interface DatabasesTypeMap<T = unknown> {
-  documents: DocumentsInstance<T>
+  documents: IDocuments<T>
   events: EventsInstance<T>
-  keyvalue: KeyValueInstance<T> | KeyValueIndexedInstance<T>
+  keyvalue: IKeyValue<T> | KeyValueIndexedInstance<T>
 }
-type Databases<T extends keyof DatabasesTypeMap, U extends DatabaseInstance> = {
+type Databases<T extends keyof DatabasesTypeMap, U extends IDatabase> = {
   type: T
 
   (options: DatabaseOptions): Promise<U>
@@ -119,10 +115,10 @@ type Databases<T extends keyof DatabasesTypeMap, U extends DatabaseInstance> = {
 
 declare const Documents: <T = unknown>(
   documentsOptions?: DocumentsOptions<T>,
-) => Databases<'documents', DocumentsInstance>
+) => Databases<'documents', IDocuments>
 
 declare const Events: () => Databases<'events', EventsInstance>
-declare const KeyValue: () => Databases<'keyvalue', KeyValueInstance>
+declare const KeyValue: () => Databases<'keyvalue', IKeyValue>
 
 declare const KeyValueIndexed: (
   options?: KeyValueIndexedOptions,
@@ -132,7 +128,7 @@ export type {
   Databases,
   DatabasesTypeMap,
   DocumentsDoc,
-  DocumentsInstance,
+  IDocuments as DocumentsInstance,
   DocumentsIteratorOptions,
   DocumentsOptions,
   EventsDoc,
@@ -140,11 +136,11 @@ export type {
   EventsIteratorOptions,
   KeyValueDoc,
   KeyValueIndexedInstance,
-  KeyValueInstance,
+  IKeyValue as KeyValueInstance,
   KeyValueIteratorOptions,
 }
 export { Documents, Events, KeyValue, KeyValueIndexed }
 
 export function useDatabaseType<T = unknown>(
-  database: Databases<keyof DatabasesTypeMap, DatabaseInstance>,
+  database: Databases<keyof DatabasesTypeMap, IDatabase>,
 ): void

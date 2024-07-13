@@ -4,7 +4,7 @@ export async function convertBytesToPKCS8(
   keyBytes: Uint8Array,
 ): Promise<string> {
   // Import the key
-  const key = await jose.importPKCS8(keyBytes, 'RS256')
+  const key = await jose.importPKCS8(keyBytes.toString(), 'ES256K')
 
   // Export the key to PKCS8 format
   return await jose.exportPKCS8(key)
