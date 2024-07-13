@@ -2,5 +2,10 @@
   "name": "@types/orbitdb__core",
   "version": "0.0.2",
   "private": true,
+  "license": "MIT",
+  "author": {
+    "name": "Alexander Semyenov <semyenov@hotmail.com>",
+    "url": "https://github.com/semyenov"
+  },
   "types": "index.d.ts"
 }

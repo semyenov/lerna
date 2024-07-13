@@ -65,7 +65,7 @@ export function createLogger(options?: LoggerOptions) {
             const message =
               typeof log.message === 'string' &&
               log.message.length > 0 &&
-              `/ ${log.message}`
+              `\\ ${log.message}`
             const stack =
               log.stack &&
               log.message.length > 0 &&

@@ -1,26 +1,26 @@
+import process from 'node:process'
+
 import { sign, verify } from '@regioni/lib/jose'
 import { createLogger } from '@regioni/lib/logger'
+import { Argument, Command } from 'commander'
 import { consola } from 'consola'
 
 import { ErrorUserKeyNotFound, ErrorUserNotFound } from './modules/users/errors'
 import { type UserStoreInstance, UsersStore } from './modules/users/store'
 
+const ID_ARGUMENT_DESCRIPTION = 'user id'
+
 const logger = createLogger({
   defaultMeta: {
+    app: 'regioni',
     service: 'root',
     label: 'cli',
   },
 })
 
 const usersPath = './.out/users'
-const prompt = consola.prompt.bind(consola)
 
-async function createUser(userStore: UserStoreInstance) {
-  const id = await prompt('Enter user id to create:', {
-    type: 'text',
-    initial: 'semyenov',
-  })
-
+async function createUser(userStore: UserStoreInstance, id: string) {
   const user = await userStore.createUser(id, {
     id,
     hash: '',
@@ -29,8 +29,8 @@ async function createUser(userStore: UserStoreInstance) {
     version: '1',
 
     info: {
-      name: `User ${id}`,
-      description: 'user description',
+      name: `User #${id}`,
+      description: 'User description',
       legend: `${id}@regioni.io`,
     },
 
@@ -41,21 +41,16 @@ async function createUser(userStore: UserStoreInstance) {
     updatedAt: new Date(),
   })
 
-  logger.log('User created:', user)
+  logger.info('User created:', user)
 }
 
-async function deleteUser(userStore: UserStoreInstance) {
-  const id = await prompt('Enter user id to delete:', {
-    type: 'text',
-    initial: 'semyenov',
-  })
-
+async function deleteUser(userStore: UserStoreInstance, id: string) {
   const user = await userStore.getUser(id)
   if (!user) {
     throw ErrorUserNotFound
   }
 
-  const confirmation = await prompt(
+  const confirmation = await consola.prompt(
     `Are you sure you want to delete user ${id}? (yes/no)`,
     { type: 'confirm', initial: true },
   )
@@ -67,22 +62,16 @@ async function deleteUser(userStore: UserStoreInstance) {
   await userStore.removeUser(id)
 }
 
-async function getUser(userStore: UserStoreInstance) {
-  const id = await prompt('Enter user id to get:', {
-    type: 'text',
-    initial: 'semyenov',
-  })
-
+async function getUser(userStore: UserStoreInstance, id: string) {
   const user = await userStore.getUser(id)
   logger.info('getUser:', { user })
 }
 
-async function signData(userStore: UserStoreInstance) {
-  const id = await prompt('Enter user id to sign:', {
-    type: 'text',
-    initial: 'semyenov',
-  })
-
+async function signData(
+  userStore: UserStoreInstance,
+  id: string,
+  data: string,
+) {
   const { user, jwk } = await userStore.getUser(id)
   if (!user) {
     throw ErrorUserNotFound
@@ -90,24 +79,11 @@ async function signData(userStore: UserStoreInstance) {
     throw ErrorUserKeyNotFound
   }
 
-  const data = await prompt('Enter data to sign:', {
-    type: 'text',
-    initial: '{"hello": "world"}',
-  })
-
-  const jwt = await sign(jwk, {
-    data,
-  })
+  const jwt = await sign(jwk, { data })
   logger.info('signData:', { jwt })
 }
 
-async function verifyData(userStore: UserStoreInstance) {
-  const data = await prompt('Enter data:', {
-    type: 'text',
-    placeholder: 'paste JWT here',
-    initial: '',
-  })
-
+async function verifyData(userStore: UserStoreInstance, data: string) {
   const keyset = await userStore.getKeyset()
   const { payload, protectedHeader, key } = await verify(data, keyset, {})
 
@@ -117,40 +93,53 @@ async function verifyData(userStore: UserStoreInstance) {
 async function run() {
   const userStore = await UsersStore({ base: usersPath })
 
-  while (true) {
-    const res = (await prompt('Test', {
-      type: 'select',
-      options: [
-        { value: '1', label: 'Create user' },
-        { value: '2', label: 'Delete user' },
-        { value: '3', label: 'Get user' },
-        { value: '4', label: 'Sign data' },
-        { value: '5', label: 'Verify data' },
-        { value: '6', label: 'Exit' },
-      ],
-    })) as any as string
+  const program = new Command()
 
-    switch (res) {
-      case '1':
-        await createUser(userStore)
-        break
-      case '2':
-        await deleteUser(userStore)
-        break
-      case '3':
-        await getUser(userStore)
-        break
-      case '4':
-        await signData(userStore)
-        break
-      case '5':
-        await verifyData(userStore)
-        break
-      default:
-        logger.info('Exiting program. Goodbye!')
-        return
-    }
-  }
+  program
+    .name('user-management-cli')
+    .description('CLI for user management')
+    .version('1.0.0')
+
+  program
+    .command('create')
+    .aliases(['add', 'new'])
+    .addArgument(new Argument('id', ID_ARGUMENT_DESCRIPTION))
+    .description('Create a new user')
+    .action((id) => createUser(userStore, id))
+
+  program
+    .command('delete')
+    .aliases(['remove', 'rm', 'del'])
+    .addArgument(new Argument('id', ID_ARGUMENT_DESCRIPTION))
+    .description('Delete a user')
+    .action((id) => deleteUser(userStore, id))
+
+  program
+    .command('get')
+    .aliases(['show'])
+    .addArgument(new Argument('id', ID_ARGUMENT_DESCRIPTION))
+    .description('Get user information')
+    .action((id) => getUser(userStore, id))
+
+  program
+    .command('sign')
+    .aliases(['use', 'sign-data'])
+    .addArgument(new Argument('id', ID_ARGUMENT_DESCRIPTION))
+    .addArgument(new Argument('data', 'data to sign'))
+    .description('Sign data')
+    .action((id, data) => signData(userStore, id, data))
+
+  program
+    .command('verify')
+    .aliases(['test', 'verify-data'])
+    .addArgument(new Argument('data', 'JWT to verify'))
+    .description('Verify data signature')
+    .action((data) => verifyData(userStore, data))
+
+  await program.parseAsync(process.argv)
 }
 
-run()
+run().catch((error) => {
+  logger.error('An error occurred:', error)
+  process.exit(1)
+})

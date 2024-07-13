@@ -3060,6 +3060,7 @@ __metadata:
     c12: "npm:^1.11.1"
     cborg: "npm:^4.2.3"
     chalk: "npm:^5.3.0"
+    commander: "npm:^12.1.0"
     consola: "npm:^3.2.3"
     cross-env: "npm:7.0.3"
     dag-jose: "npm:^5.1.0"
@@ -6504,6 +6505,13 @@ __metadata:
   version: 7.2.0
   resolution: "commander@npm:7.2.0"
   checksum: 10/9973af10727ad4b44f26703bf3e9fdc323528660a7590efe3aa9ad5042b4584c0deed84ba443f61c9d6f02dade54a5a5d3c95e306a1e1630f8374ae6db16c06d
+  languageName: node
+  linkType: hard
+
+"commander@npm:^12.1.0":
+  version: 12.1.0
+  resolution: "commander@npm:12.1.0"
+  checksum: 10/cdaeb672d979816853a4eed7f1310a9319e8b976172485c2a6b437ed0db0a389a44cfb222bfbde772781efa9f215bdd1b936f80d6b249485b465c6cb906e1f93
   languageName: node
   linkType: hard
 
