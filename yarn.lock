@@ -2747,6 +2747,8 @@ __metadata:
     ts-pattern: "npm:^5.2.0"
     tsx: "npm:^4.16.2"
     unstorage: "npm:^1.10.2"
+  bin:
+    backend: ./dist/cli.mjs
   languageName: unknown
   linkType: soft
 

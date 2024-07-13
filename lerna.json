@@ -5,7 +5,10 @@
   "packages": ["packages/*", "apps/*"],
   "command": {
     "run": {
-      "script": "build"
+      "script": "build",
+      "concurrency": 10,
+      "parallel": true,
+      "loglevel": "info"
     }
   },
   "useWorkspaces": true

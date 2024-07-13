@@ -13,10 +13,10 @@ const { ec: EC } = elliptic
 const alg = 'ES256K'
 const ec = new EC('secp256k1')
 
-// const options = {
-//   issuer: 'urn:example:issuer',
-//   audience: 'urn:example:audience',
-// }
+const options = {
+  issuer: 'urn:example:issuer',
+  audience: 'urn:example:audience',
+}
 
 export async function secp256k1ToJWK(keyPair: PrivateKeys): Promise<JWK> {
   if (!keyPair) {
@@ -69,18 +69,16 @@ export async function sign(jwk: JWK, payload: JWTPayload) {
     throw new Error('Invalid JWK')
   }
 
-  return (
-    new JWT(payload)
-      // .setIssuer(options.issuer)
-      // .setAudience(options.audience)
-      .setProtectedHeader({
-        alg,
-        kid: jwk.kid,
-      })
-      .setExpirationTime('10m')
-      .setIssuedAt(new Date())
-      .sign(signKey)
-  )
+  return new JWT(payload)
+    .setIssuer(options.issuer)
+    .setAudience(options.audience)
+    .setProtectedHeader({
+      alg,
+      kid: jwk.kid,
+    })
+    .setExpirationTime('10m')
+    .setIssuedAt(new Date())
+    .sign(signKey)
 }
 
 export function verify(

@@ -1,11 +1,19 @@
 import { sign, verify } from '@regioni/lib/jose'
-import { consola as logger } from 'consola'
+import { createLogger } from '@regioni/lib/logger'
+import { consola } from 'consola'
 
 import { ErrorUserKeyNotFound, ErrorUserNotFound } from './modules/users/errors'
 import { type UserStoreInstance, UsersStore } from './modules/users/store'
 
+const logger = createLogger({
+  defaultMeta: {
+    service: 'root',
+    label: 'cli',
+  },
+})
+
 const usersPath = './.out/users'
-const prompt = logger.prompt.bind(logger)
+const prompt = consola.prompt.bind(consola)
 
 async function createUser(userStore: UserStoreInstance) {
   const id = await prompt('Enter user id to create:', {
@@ -82,7 +90,7 @@ async function signData(userStore: UserStoreInstance) {
     throw ErrorUserKeyNotFound
   }
 
-  const data = await prompt('Enter data:', {
+  const data = await prompt('Enter data to sign:', {
     type: 'text',
     initial: '{"hello": "world"}',
   })
@@ -96,7 +104,8 @@ async function signData(userStore: UserStoreInstance) {
 async function verifyData(userStore: UserStoreInstance) {
   const data = await prompt('Enter data:', {
     type: 'text',
-    initial: '{"hello": "world"}',
+    placeholder: 'paste JWT here',
+    initial: '',
   })
 
   const keyset = await userStore.getKeyset()
@@ -138,7 +147,7 @@ async function run() {
         await verifyData(userStore)
         break
       default:
-        logger.log('Exiting program. Goodbye!')
+        logger.info('Exiting program. Goodbye!')
         return
     }
   }

@@ -81,7 +81,7 @@
   },
   "sideEffects": false,
   "scripts": {
-    "build": "pkgroll",
+    "build": "pkgroll --minify",
     "dev": "yarn esno src/index.ts",
     "typecheck": "yarn tsc --noEmit",
     "start": "cross-env NODE_OPTIONS=\"--no-warnings --experimental-modules --experimental-import-meta-resolve\" yarn node src/esm/index.mjs",
