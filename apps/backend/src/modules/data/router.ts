@@ -29,7 +29,7 @@ export const dataRouter = rootRouter({
         key,
       })
 
-      ajv.validate(schemaId, data)
+      ajv.validate(schemaId || 'unknown', data)
       // const job = await bullmq.add('appQueue', {
       //   message: JSON.stringify(data),
       // })

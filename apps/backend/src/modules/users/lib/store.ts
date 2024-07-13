@@ -40,7 +40,7 @@ export async function UsersStore(
       throw new Error('User not found')
     }
 
-    const keys = await keystore.getKey(user.keys[0])
+    const keys = await keystore.getKey(user.keys[0] || 'unknown')
     const jwk = await secp256k1ToJWK(keys)
 
     logger.info('JWKtosecp256k1', { jwk: jwkToSecp256k1(jwk) })
