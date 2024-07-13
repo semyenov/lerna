@@ -89,12 +89,12 @@ export function createLogger(options?: LoggerOptions) {
       }),
       new t.File({
         level: 'debug',
-        filename: 'logs/debug.log',
+        filename: '.out/logs/debug.log',
         format: f.json(),
       }),
       new t.File({
         level: 'error',
-        filename: 'logs/errors.log',
+        filename: '.out/logs/errors.log',
         format: f.json(),
       }),
     ],

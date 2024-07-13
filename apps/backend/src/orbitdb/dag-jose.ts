@@ -149,10 +149,10 @@ async function asymmetric() {
 logger.info('Running symmetric example...')
 symmetric()
   .then(async () => {
-    console.log('Running asymmetric example...')
+    logger.info('Running asymmetric example...')
     await asymmetric()
   })
   .catch((error) => {
-    console.error(error.stack)
+    logger.error(error.stack)
     process.exit(1)
   })

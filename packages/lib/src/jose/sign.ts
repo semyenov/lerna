@@ -13,10 +13,10 @@ const { ec: EC } = elliptic
 const alg = 'ES256K'
 const ec = new EC('secp256k1')
 
-const options = {
-  issuer: 'urn:example:issuer',
-  audience: 'urn:example:audience',
-}
+// const options = {
+//   issuer: 'urn:example:issuer',
+//   audience: 'urn:example:audience',
+// }
 
 export async function secp256k1ToJWK(keyPair: PrivateKeys): Promise<JWK> {
   if (!keyPair) {
@@ -28,13 +28,13 @@ export async function secp256k1ToJWK(keyPair: PrivateKeys): Promise<JWK> {
   const publicKey = keys.getPublic()
   const privateKey = keys.getPrivate()
 
-  const kid = await keyPair.id()
+  const kid = (await keyPair.id()) || 'unknown'
 
   return {
     alg,
+    kid,
     kty: 'EC',
     crv: 'secp256k1',
-    kid: kid || 'unknown',
     x: encode(publicKey.getX()),
     y: encode(publicKey.getY()),
     d: encode(privateKey),
@@ -46,38 +46,41 @@ export function jwkToSecp256k1(jwk: JWK): Promise<PrivateKeys> {
     throw new Error('Invalid JWK')
   }
 
-  const publicKey = ec.keyFromPublic({ x: jwk.x, y: jwk.y }, 'hex')
+  const publicKey = ec.keyFromPublic(
+    {
+      x: base64url.decode(jwk.x).toString(),
+      y: base64url.decode(jwk.y).toString(),
+    },
+    'hex',
+  )
+
   const privateKey = ec.keyFromPrivate(base64url.decode(jwk.d), 'hex')
 
   const pub = decode(publicKey.getPublic('hex'))
   const priv = decode(privateKey.getPrivate('hex'))
-
-  const keys = ec.keyPair({
-    pubEnc: 'hex',
-    privEnc: 'hex',
-    pub,
-    priv,
-  })
-
-  const keyPair = new Secp256k1PrivateKey(decode(keys.getPrivate('hex')))
+  const keyPair = new Secp256k1PrivateKey(priv, pub)
 
   return Promise.resolve(keyPair)
 }
 
 export async function sign(jwk: JWK, payload: JWTPayload) {
   const signKey = await importJWK(jwk, alg)
-  return new JWT(payload)
-    .setIssuer(options.issuer)
-    .setAudience(options.audience)
-    .setProtectedHeader({
-      alg,
-      typ: 'JWT',
-      kid: jwk.kid,
-      jti: crypto.randomUUID(),
-    })
-    .setExpirationTime('10m')
-    .setIssuedAt(new Date())
-    .sign(signKey)
+  if (!signKey) {
+    throw new Error('Invalid JWK')
+  }
+
+  return (
+    new JWT(payload)
+      // .setIssuer(options.issuer)
+      // .setAudience(options.audience)
+      .setProtectedHeader({
+        alg,
+        kid: jwk.kid,
+      })
+      .setExpirationTime('10m')
+      .setIssuedAt(new Date())
+      .sign(signKey)
+  )
 }
 
 export function verify(
