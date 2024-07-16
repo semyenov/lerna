@@ -24,7 +24,7 @@ export const DefaultLibp2pOptions: Libp2pOptions = {
   ],
   transports: [
     tcp(),
-    webRTC(),
+    webRTC() as any,
     webSockets({ filter: all }),
     circuitRelayTransport({ discoverRelays: 1 }),
   ],
@@ -35,7 +35,7 @@ export const DefaultLibp2pOptions: Libp2pOptions = {
   },
   services: {
     identify: identify(),
-    pubsub: gossipsub({ allowPublishToZeroTopicPeers: true }),
+    pubsub: gossipsub({ allowPublishToZeroTopicPeers: true }) as any,
   },
 }
 
@@ -44,8 +44,8 @@ export const DefaultLibp2pBrowserOptions: Libp2pOptions = {
     listen: ['/webrtc'],
   },
   transports: [
-    tcp(),
-    webRTC(),
+    tcp() as any,
+    webRTC() as any,
     webSockets({ filter: all }),
     circuitRelayTransport({ discoverRelays: 1 }),
   ],
@@ -56,6 +56,6 @@ export const DefaultLibp2pBrowserOptions: Libp2pOptions = {
   },
   services: {
     identify: identify(),
-    pubsub: gossipsub({ allowPublishToZeroTopicPeers: true }),
+    pubsub: gossipsub({ allowPublishToZeroTopicPeers: true }) as any,
   },
 }

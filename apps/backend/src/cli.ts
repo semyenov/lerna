@@ -84,7 +84,7 @@ async function signData(
 }
 
 async function verifyData(userStore: UserStoreInstance, data: string) {
-  const keyset = await userStore.getKeyset()
+  const keyset = await userStore.createJWKSet()
   const { payload, protectedHeader, key } = await verify(data, keyset, {})
 
   logger.info('verifyData:', { payload, protectedHeader, key })
@@ -100,28 +100,32 @@ async function run() {
     .description('CLI for user management')
     .version('1.0.0')
 
-  program
+  const userCommand = program
+    .command('user')
+    .description('User management commands')
+
+  userCommand
     .command('create')
     .aliases(['add', 'new'])
     .addArgument(new Argument('id', ID_ARGUMENT_DESCRIPTION))
     .description('Create a new user')
     .action((id) => createUser(userStore, id))
 
-  program
+  userCommand
     .command('delete')
     .aliases(['remove', 'rm', 'del'])
     .addArgument(new Argument('id', ID_ARGUMENT_DESCRIPTION))
     .description('Delete a user')
     .action((id) => deleteUser(userStore, id))
 
-  program
+  userCommand
     .command('get')
     .aliases(['show'])
     .addArgument(new Argument('id', ID_ARGUMENT_DESCRIPTION))
     .description('Get user information')
     .action((id) => getUser(userStore, id))
 
-  program
+  userCommand
     .command('sign')
     .aliases(['use', 'sign-data'])
     .addArgument(new Argument('id', ID_ARGUMENT_DESCRIPTION))
@@ -129,7 +133,7 @@ async function run() {
     .description('Sign data')
     .action((id, data) => signData(userStore, id, data))
 
-  program
+  userCommand
     .command('verify')
     .aliases(['test', 'verify-data'])
     .addArgument(new Argument('data', 'JWT to verify'))

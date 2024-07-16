@@ -46,7 +46,7 @@ export interface UserStoreInstance {
     user: User
   }>
   removeUser: (id: string) => Promise<void>
-  getKeyset: () => Promise<
+  createJWKSet: () => Promise<
     (
       protectedHeader?: JWSHeaderParameters,
       token?: FlattenedJWSInput,
@@ -173,6 +173,6 @@ export async function UsersStore(
     createUser,
     updateUser,
     removeUser,
-    getKeyset,
+    createJWKSet: getKeyset,
   }
 }
