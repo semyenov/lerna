@@ -44,7 +44,7 @@ export const DefaultLibp2pBrowserOptions: Libp2pOptions = {
     listen: ['/webrtc'],
   },
   transports: [
-    tcp() as any,
+    tcp(),
     webRTC() as any,
     webSockets({ filter: all }),
     circuitRelayTransport({ discoverRelays: 1 }),
