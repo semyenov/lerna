@@ -101,7 +101,7 @@
     "ajv-formats": "^3.0.1",
     "ajv-i18n": "^4.2.0",
     "ajv-keywords": "^5.1.0",
-    "bullmq": "^5.8.7",
+    "bullmq": "^5.10.0",
     "chokidar": "^3.6.0",
     "consola": "^3.2.3",
     "elliptic": "^6.5.5",
