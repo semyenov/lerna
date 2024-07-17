@@ -1,9 +1,6 @@
-// import { createAjv } from '@regioni/lib/ajv'
 import { createAjv } from '@regioni/lib/ajv'
 import { bullmq } from '@regioni/lib/bullmq'
 import { createRedisStore } from '@regioni/lib/redis'
-
-// import { createMongoDBStore } from '@regioni/lib/mongodb'
 
 import type { CreateHTTPContextOptions } from '@trpc/server/adapters/standalone'
 import type { CreateWSSContextFnOptions } from '@trpc/server/adapters/ws'
@@ -14,7 +11,6 @@ export type CreateContextOptions =
   | CreateWSSContextFnOptions
 
 export async function createContext() {
-  // _opts: CreateContextOptions
   const ajv = await createAjv()
   const redis = await createRedisStore({
     url: 'redis://redis:6379',
@@ -24,6 +20,5 @@ export async function createContext() {
     ajv,
     redis,
     bullmq,
-    // mongodb,
   }
 }

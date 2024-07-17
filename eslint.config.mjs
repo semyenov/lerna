@@ -9,6 +9,9 @@ import config from '@regioni/eslint-config'
 export default [
   ...config,
   {
+    rules: {
+      'require-await': 'off',
+    },
     ignores: [
       'node_modules',
       'packages/*/node_modules',
