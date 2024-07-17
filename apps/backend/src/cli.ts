@@ -34,8 +34,8 @@ async function createUser(userStore: UserStoreInstance, id: string) {
       legend: `${id}@regioni.io`,
     },
 
-    roles: ['admin'],
     status: 'active',
+    roles: ['admin'],
 
     createdAt: new Date(),
     updatedAt: new Date(),
@@ -72,20 +72,20 @@ async function signData(
   id: string,
   data: string,
 ) {
-  const { user, jwk } = await userStore.getUser(id)
+  const user = await userStore.getUser(id)
   if (!user) {
     throw ErrorUserNotFound
   } else if (!user.keys || !user.keys[0]) {
     throw ErrorUserKeyNotFound
   }
 
-  const jwt = await sign(jwk, { data })
+  const jwt = await sign(user.jwk.privateKey, { data })
   logger.info('signData:', { jwt })
 }
 
 async function verifyData(userStore: UserStoreInstance, data: string) {
-  const keyset = await userStore.createJWKSet()
-  const { payload, protectedHeader, key } = await verify(data, keyset, {})
+  const keyset = await userStore.getJWKSet()
+  const { payload, protectedHeader, key } = await verify(data, keyset)
 
   logger.info('verifyData:', { payload, protectedHeader, key })
 }
