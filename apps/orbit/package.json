@@ -1,15 +1,17 @@
 {
   "$schema": "https://json.schemastore.org/package.json",
-  "name": "@regioni/backend",
+  "name": "@apps/orbit",
   "version": "0.0.2",
   "packageManager": "yarn@4.1.1",
   "description": "Rollup build script",
   "type": "module",
   "keywords": [],
   "license": "MIT",
+  "homepage": "https://gitea.local/apps/orbit#readme",
+  "bugs": "https://gitea.local/apps/orbit/issues",
   "repository": {
     "type": "git",
-    "url": "git+https://gitea.local/regioni/backend.git"
+    "url": "git+https://gitea.local/apps/orbit.git"
   },
   "author": "Alexander Semyenov <semyenov@hotmail.com>",
   "files": [
@@ -34,7 +36,6 @@
     }
   },
   "sideEffects": false,
-  "bin": "./dist/cli.mjs",
   "scripts": {
     "build": "pkgroll --minify",
     "start": "cross-env NODE_OPTIONS=\"--no-warnings --experimental-modules --experimental-import-meta-resolve\" yarn node dist/esm/index.mjs",
