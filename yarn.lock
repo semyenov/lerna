@@ -236,10 +236,11 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@antfu/eslint-config@npm:^2.22.4":
-  version: 2.22.4
-  resolution: "@antfu/eslint-config@npm:2.22.4"
+"@antfu/eslint-config@npm:^2.23.0":
+  version: 2.23.0
+  resolution: "@antfu/eslint-config@npm:2.23.0"
   dependencies:
+    "@antfu/eslint-plugin-unused-imports": "npm:^4.0.0"
     "@antfu/install-pkg": "npm:^0.3.3"
     "@clack/prompts": "npm:^0.7.0"
     "@stylistic/eslint-plugin": "npm:^2.6.0-beta.0"
@@ -261,7 +262,6 @@ __metadata:
     eslint-plugin-regexp: "npm:^2.6.0"
     eslint-plugin-toml: "npm:^0.11.1"
     eslint-plugin-unicorn: "npm:^54.0.0"
-    eslint-plugin-unused-imports: "npm:^4.0.0"
     eslint-plugin-vitest: "npm:^0.5.4"
     eslint-plugin-vue: "npm:^9.27.0"
     eslint-plugin-yml: "npm:^1.14.0"
@@ -319,7 +319,22 @@ __metadata:
       optional: true
   bin:
     eslint-config: bin/index.js
-  checksum: 10/7d6a9905f0e76e2776d4e65f8ef706b9160c6e9245b7862eb63e9963a304e1a7f377db36fc89b5712ac54d9c2c250b6b48ee0b38b76cd402ee9cfd98cfba1536
+  checksum: 10/520e17b3e03d6cca4c2dcc007add9b7c760d396f25670247994f5ac32104f290335959f31f2ad495164a9b29147c62d334fe952b8bda347956aaeb142422213e
+  languageName: node
+  linkType: hard
+
+"@antfu/eslint-plugin-unused-imports@npm:^4.0.0":
+  version: 4.0.0
+  resolution: "@antfu/eslint-plugin-unused-imports@npm:4.0.0"
+  dependencies:
+    eslint-rule-composer: "npm:^0.3.0"
+  peerDependencies:
+    "@typescript-eslint/eslint-plugin": ^8.0.0-0
+    eslint: ^9.0.0
+  peerDependenciesMeta:
+    "@typescript-eslint/eslint-plugin":
+      optional: true
+  checksum: 10/e8e9a689d896fef437935450fc6b1a014a699a1d3e8d70dedfc11357473d6c49519bb21ad8706ac73ba5b27cb3b02dc46daf541b5c95bb70b29c4d9fe7012dde
   languageName: node
   linkType: hard
 
@@ -4703,7 +4718,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@regioni/eslint-config@workspace:packages/eslint-config"
   dependencies:
-    "@antfu/eslint-config": "npm:^2.22.4"
+    "@antfu/eslint-config": "npm:^2.23.0"
     "@antfu/eslint-config-ts": "npm:^0.43.1"
     "@antfu/utils": "npm:^0.7.10"
     "@eslint/eslintrc": "npm:^3.1.0"
@@ -4764,7 +4779,7 @@ __metadata:
     "@msgpack/msgpack": "npm:^3.0.0-beta2"
     "@orbitdb/core": "npm:^2.2.0"
     "@trpc/server": "npm:^10.45.2"
-    "@types/bn.js": "npm:^5"
+    "@types/bn.js": "npm:^5.1.5"
     "@types/events": "npm:^3.0.3"
     "@types/orbitdb__core": "workspace:^"
     ajv: "npm:^8.17.1"
@@ -4812,7 +4827,7 @@ __metadata:
     "@regioni/foo": "workspace:*"
     "@types/node": "npm:^20.14.11"
     "@types/semver": "npm:^7.5.8"
-    eslint: "npm:^9.7.0"
+    eslint: "npm:9.7.0"
     semver: "npm:^7.6.3"
     tsx: "npm:^4.16.2"
     typescript: "npm:^5.5.3"
@@ -5411,7 +5426,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/bn.js@npm:*, @types/bn.js@npm:^5":
+"@types/bn.js@npm:*, @types/bn.js@npm:^5.1.5":
   version: 5.1.5
   resolution: "@types/bn.js@npm:5.1.5"
   dependencies:
@@ -10425,7 +10440,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"eslint@npm:^9.7.0":
+"eslint@npm:9.7.0, eslint@npm:^9.7.0":
   version: 9.7.0
   resolution: "eslint@npm:9.7.0"
   dependencies:

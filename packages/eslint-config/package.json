@@ -50,7 +50,7 @@
     "clean": "yarn exec rm -rf dist"
   },
   "dependencies": {
-    "@antfu/eslint-config": "^2.22.4",
+    "@antfu/eslint-config": "^2.23.0",
     "@eslint/eslintrc": "^3.1.0",
     "@sxzz/eslint-config": "^3.14.0",
     "@types/eslint-plugin-security": "^3.0.0",

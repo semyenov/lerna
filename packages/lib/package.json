@@ -95,7 +95,7 @@
     "@msgpack/msgpack": "^3.0.0-beta2",
     "@orbitdb/core": "^2.2.0",
     "@trpc/server": "^10.45.2",
-    "@types/bn.js": "^5",
+    "@types/bn.js": "^5.1.5",
     "@types/orbitdb__core": "workspace:^",
     "ajv": "^8.17.1",
     "ajv-errors": "^3.0.0",

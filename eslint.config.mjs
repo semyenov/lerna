@@ -1,12 +1,11 @@
 import config from '@regioni/eslint-config'
 
 /**
- * @type {Linter.FlatConfig<Linter.RulesRecord>[]}
- * @default
- * @export
+ * @typedef {import('eslint').Linter.FlatConfig<Linter.RulesRecord>[]} FlatConfig
  * **/
 
-export default [
+/** @type {FlatConfig} */
+const eslintConfig = [
   ...config,
   {
     ignores: [
@@ -23,3 +22,5 @@ export default [
     ],
   },
 ]
+
+export default eslintConfig
