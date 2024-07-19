@@ -1,5 +1,5 @@
 /* eslint-disable no-unused-vars */
-
+// @ts-ignore
 import LRU from 'lru'
 import PQueue from 'p-queue'
 
@@ -11,6 +11,7 @@ import Heads from './heads.js'
 import { Entry } from './types.js'
 
 import type { AccessControllerInstance } from '../access-controllers/index.js'
+import type { IdentityInstance } from '../identities/index.js'
 import type { StorageInstance } from '../storage'
 
 interface LogIteratorOptions {
@@ -38,9 +39,9 @@ interface LogInstance<T> {
 
   access?: AccessControllerInstance
   identity: IdentityInstance
-  storage: StorageInstance
+  storage: StorageInstance<T>
 
-  clock: () => Promise<Clock>
+  clock: () => Promise<typeof Clock>
   heads: () => Promise<Entry.Instance<T>[]>
   values: () => Promise<Entry.Instance<T>[]>
   all: () => Promise<Entry.Instance<T>[]>
@@ -54,11 +55,6 @@ interface LogInstance<T> {
   clear: () => Promise<void>
   close: () => Promise<void>
 }
-declare function Log<T>(
-  ipfs: IPFS,
-  identity: IdentityInstance,
-  options?: LogOptions<T>,
-): Promise<LogInstance<T>>
 
 const { LastWriteWins, NoZeroes } = ConflictResolution
 
@@ -102,6 +98,12 @@ const DefaultAccessController = async () => {
  * @memberof module:Log
  * @instance
  */
+
+// (
+//   ipfs: HeliaInstance,
+//   identity: IdentityInstance,
+//   options?: LogOptions<T>,
+// ): Promise<LogInstance<T>>
 const Log = async (
   identity,
   {
