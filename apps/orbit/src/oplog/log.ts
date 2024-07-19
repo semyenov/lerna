@@ -1,20 +1,64 @@
-/**
- * @module Log
- * @description
- * Log is a verifiable, append-only log CRDT.
- *
- * Implemented as a Merkle-CRDT as per the paper
- * ["Merkle-CRDTs: Merkle-DAGs meet CRDTs"]{@link https://arxiv.org/abs/2004.00107}
- */
+/* eslint-disable no-unused-vars */
+
 import LRU from 'lru'
 import PQueue from 'p-queue'
 
-import MemoryStorage from '../storage/memory.js'
+import { MemoryStorage } from '../storage/memory.js'
 
-import Clock, { tickClock } from './clock.js'
+import { Clock, tickClock } from './clock.js'
 import ConflictResolution from './conflict-resolution.js'
-import Entry from './entry.js'
 import Heads from './heads.js'
+import { Entry } from './types.js'
+
+import type { AccessControllerInstance } from '../access-controllers/index.js'
+import type { StorageInstance } from '../storage'
+
+interface LogIteratorOptions {
+  gt?: string
+  gte?: string
+  lt?: string
+  lte?: string
+  amount?: number
+}
+interface LogAppendOptions {
+  referencesCount: number
+}
+interface LogOptions<T> {
+  logId?: string
+  logHeads?: Entry.Instance<T>[]
+  access?: AccessControllerInstance
+  entries?: Entry.Instance<T>[]
+  entryStorage?: StorageInstance<any>
+  headsStorage?: StorageInstance<any>
+  indexStorage?: StorageInstance<any>
+  sortFn?: (a: Entry.Instance<T>, b: Entry.Instance<T>) => number
+}
+interface LogInstance<T> {
+  id: string
+
+  access?: AccessControllerInstance
+  identity: IdentityInstance
+  storage: StorageInstance
+
+  clock: () => Promise<Clock>
+  heads: () => Promise<Entry.Instance<T>[]>
+  values: () => Promise<Entry.Instance<T>[]>
+  all: () => Promise<Entry.Instance<T>[]>
+  get: (hash: string) => Promise<Entry.Instance<T> | undefined>
+  has: (hash: string) => Promise<boolean>
+  append: (payload: T, options?: LogAppendOptions) => Promise<Entry.Instance<T>>
+  join: (log: LogInstance<T>) => Promise<void>
+  joinEntry: (entry: Entry.Instance<T>) => Promise<void>
+  traverse: () => AsyncGenerator<Entry.Instance<T>>
+  iterator: (options?: LogIteratorOptions) => AsyncIterable<Entry.Instance<T>>
+  clear: () => Promise<void>
+  close: () => Promise<void>
+}
+declare function Log<T>(
+  ipfs: IPFS,
+  identity: IdentityInstance,
+  options?: LogOptions<T>,
+): Promise<LogInstance<T>>
 
 const { LastWriteWins, NoZeroes } = ConflictResolution
 
