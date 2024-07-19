@@ -1,33 +1,35 @@
+/* eslint-disable no-unused-vars */
 import * as dagCbor from '@ipld/dag-cbor'
 import { base58btc } from 'multiformats/bases/base58'
 import * as Block from 'multiformats/block'
 import { sha256 } from 'multiformats/hashes/sha2'
 
+export interface IdentityOptions {
+  id: string
+  type: string
+  publicKey: string
+  signatures: { id: string; publicKey: string }
+
+  sign?: (data: any) => Promise<string>
+  verify?: (data: any, signature: string) => Promise<boolean>
+}
+export interface IdentityInstance extends IdentityOptions {
+  hash: string
+  bytes: Uint8Array
+}
+
 const codec = dagCbor
 const hasher = sha256
 const hashStringEncoding = base58btc
 
-/**
- * @typedef {Object} module:Identities~Identity
- * @property {string} id A unique identifer for the identity.
- * @property {object} publicKey A public key.
- * @property {object} signatures A signed identity id and public key.
- * @property {string} type The type of identity provider.
- * @property {function} sign A sign function to sign data using this identity.
- * @property {function} verify A verify function to verify data signed by this identity.
- */
-const Identity = async ({
+export const Identity = async ({
   id,
   publicKey,
   signatures,
   type,
   sign,
   verify,
-} = {}) => {
-  /**
-   * @description The Identity instance. Returned by
-   * [Identities.createIdentity()]{@link module:Identities~Identities#createIdentity}.
-   */
+}: IdentityOptions) => {
   if (!id) {
     throw new Error('Identity id is required')
   }
@@ -47,25 +49,30 @@ const Identity = async ({
     throw new Error('Identity type is required')
   }
 
-  signatures = Object.assign({}, signatures)
-
-  const identity = {
+  const { hash, bytes } = await encodeIdentity({
     id,
+    type,
     publicKey,
     signatures,
+  })
+
+  const identity: IdentityInstance = {
+    id,
     type,
+    publicKey,
+    signatures,
+
     sign,
     verify,
-  }
 
-  const { hash, bytes } = await _encodeIdentity(identity)
-  identity.hash = hash
-  identity.bytes = bytes
+    hash,
+    bytes,
+  }
 
   return identity
 }
 
-const _encodeIdentity = async (identity) => {
+const encodeIdentity = async (identity: IdentityOptions) => {
   const { id, publicKey, signatures, type } = identity
   const value = { id, publicKey, signatures, type }
   const { cid, bytes } = await Block.encode({ value, codec, hasher })
@@ -73,19 +80,17 @@ const _encodeIdentity = async (identity) => {
   return { hash, bytes: Uint8Array.from(bytes) }
 }
 
-const decodeIdentity = async (bytes) => {
-  const { value } = await Block.decode({ bytes, codec, hasher })
+export async function decodeIdentity(bytes: Uint8Array) {
+  const { value } = await Block.decode<IdentityOptions, 113, 18>({
+    bytes,
+    codec,
+    hasher,
+  })
+
   return Identity({ ...value })
 }
 
-/**
- * Verifies whether an identity is valid.
- * @param {Identity} identity The identity to verify.
- * @return {boolean} True if the identity is valid, false otherwise.
- * @static
- * @private
- */
-const isIdentity = (identity) => {
+export function isIdentity(identity: any): identity is IdentityInstance {
   return Boolean(
     identity.id &&
       identity.hash &&
@@ -98,15 +103,7 @@ const isIdentity = (identity) => {
   )
 }
 
-/**
- * Evaluates whether two identities are equal.
- * @param {Identity} a First identity.
- * @param {Identity} b Second identity.
- * @return {boolean} True if identity a and b are equal, false otherwise.
- * @static
- * @private
- */
-const isEqual = (a, b) => {
+export function isEqual(a: IdentityInstance, b: IdentityInstance) {
   return (
     a.id === b.id &&
     a.hash === b.hash &&
@@ -116,5 +113,3 @@ const isEqual = (a, b) => {
     a.signatures.publicKey === b.signatures.publicKey
   )
 }
-
-export { Identity as default, isEqual, isIdentity, decodeIdentity }

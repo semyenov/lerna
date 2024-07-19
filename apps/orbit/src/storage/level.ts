@@ -1,116 +1,49 @@
-/**
- * @namespace Storage-Level
- * @memberof module:Storage
- * @description
- * LevelStorage stores data to a Level-compatible database.
- *
- * To learn more about Level, see {@link https://github.com/Level/level}.
- */
-import { LRUStorageInstance } from 'apps/orbit/types/storage'
-import {  IPFSBlockStorage, LRUStorage } from '../storage'
-import { IPFSBlockStorageInstance } from '../storage/ipfs-block'
-import { Level } from 'level'
+import { Level, type IteratorOptions as LevelIteratorOptions } from 'level'
 
-const defaultPath = './level'
-const defaultValueEncoding = 'view'
+import type { StorageInstance } from '../storage'
 
-interface StorageInstance<T> {
-  put: (hash: string, data: any) => Promise<void>
-  get: (hash: string) => Promise<T>
-  del: (hash: string) => Promise<void>
-  close: () => Promise<void>
-  clear: () => Promise<void>
-  iterator: (options?: {amount: number; reverse: boolean}) => AsyncGenerator<[string, T], void, unknown>
-  merge: (other: StorageInstance<T>) => Promise<void>
-}
-
-interface LevelStorageOptions {
+export interface LevelStorageOptions {
   path?: string
   valueEncoding?: string
 }
-interface LevelStorageInstance<T> extends StorageInstance<T> {}
+export interface LevelStorageInstance<T> extends StorageInstance<T> {}
 
-interface MemoryStorageInstance extends StorageInstance<Uint8Array> {}
-declare function MemoryStorage(): Promise<MemoryStorageInstance>
+const DEFAULT_PATH = './level'
+const DEFAULT_VALUE_ENCODING = 'view'
 
-interface StorageTypeMap<T> {
-  composed: StorageInstance<T>
-  ipfs: IPFSBlockStorageInstance
-  lru: LRUStorageInstance
-  level: LevelStorageInstance<T>
-  memory: MemoryStorageInstance
+export const LevelStorage = async <T = unknown>({
+  path = DEFAULT_PATH,
+  valueEncoding = DEFAULT_VALUE_ENCODING,
+}: LevelStorageOptions): Promise<LevelStorageInstance<T>> => {
+  const level = new Level<string, T>(path, {
+    valueEncoding,
+    createIfMissing: true,
+  })
+  await level.open()
+
+  const storage: LevelStorageInstance<T> = {
+    put: async (hash: string, value: T) => {
+      await level.put(hash, value)
+    },
+    del: async (hash: string) => {
+      await level.del(hash)
+    },
+    get: async (hash: string) => {
+      return level.get(hash)
+    },
+    async *iterator(options: LevelIteratorOptions<string, T> = {}) {
+      for await (const [key, value] of level.iterator(options)) {
+        yield [key, value] as [string, T]
+      }
+    },
+    merge: async () => {},
+    clear: async () => {
+      await level.clear()
+    },
+    close: async () => {
+      await level.close()
+    },
+  }
+
+  return storage
 }
-
-type StorageType = keyof StorageTypeMap<unknown>
-
-export type {
-  IPFSBlockStorageInstance,
-  LevelStorageOptions,
-  LevelStorageInstance,
-  LRUStorageInstance,
-  MemoryStorageInstance,
-  StorageInstance,
-  StorageType,
-  StorageTypeMap,
-}
-export {
-  IPFSBlockStorage,
-  LevelStorage,
-  LRUStorage,
-  MemoryStorage,
-}
-
-const LevelStorage = async <T = unknown>(
-  { path, valueEncoding }: LevelStorageOptions,
-): Promise<LevelStorageInstance<T>> => {
-  path = path || defaultPath
-  valueEncoding = valueEncoding || defaultValueEncoding
-
-  const db = new Level<string, T>(path, { valueEncoding, createIfMissing : true })
-  await db.open()
-
-
-  const put = async (hash: string, value: T) => {
-    await db.put(hash, value)
-  }
-
-  const del = async (hash: string) => {
-    await db.del(hash)
-  }
-
-
-  const get = async (hash: string) => {
-    return db.get(hash)
-  }
-
-  const iterator = async function* ({ amount, reverse }: { amount?: number; reverse?: boolean } = {}) {
-    const iteratorOptions = { limit: amount || -1, reverse: reverse || false }
-    for await (const [key, value] of db.iterator(iteratorOptions)) {
-      yield [key, value] as [string, T]
-    }
-  }
-
-  const merge = async (other: LevelStorageInstance<T>) => {}
-
-
-  const clear = async () => {
-    await db.clear()
-  }
-
-
-  const close = async () => {
-    await db.close()
-  }
-
-  return {
-    put,
-    del,
-    get,
-    iterator,
-    merge,
-    clear,
-    close,
-  }
-}
-
-export default LevelStorage

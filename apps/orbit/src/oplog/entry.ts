@@ -3,7 +3,7 @@ import { base58btc } from 'multiformats/bases/base58'
 import * as Block from 'multiformats/block'
 import { sha256 } from 'multiformats/hashes/sha2'
 
-import Clock from './clock.js'
+import { Clock } from './clock.js'
 
 const codec = dagCbor
 const hasher = sha256

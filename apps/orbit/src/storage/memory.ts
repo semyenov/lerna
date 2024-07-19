@@ -1,103 +1,40 @@
-/**
- * @namespace Storage-Memory
- * @memberof module:Storage
- * @description
- * MemoryStorage stores data in memory.
- */
+import type { StorageInstance } from './types'
 
-/**
- * Creates an instance of MemoryStorage.
- * @function
- * @return {module:Storage.Storage-Memory} An instance of MemoryStorage.
- * @memberof module:Storage
- * @instance
- */
-const MemoryStorage = async () => {
-  let memory = {}
+export interface MemoryStorageOptions {}
+export interface MemoryStorageInstance<T> extends StorageInstance<T> {}
 
-  /**
-   * Puts data to memory.
-   * @function
-   * @param {string} hash The hash of the data to put.
-   * @param {*} data The data to store.
-   * @memberof module:Storage.Storage-Memory
-   * @instance
-   */
-  const put = async (hash, data) => {
-    memory[hash] = data
-  }
+export const MemoryStorage = async <T = unknown>(): Promise<
+  MemoryStorageInstance<T>
+> => {
+  const memory: Map<string, T> = new Map()
 
-  /**
-   * Deletes data from memory.
-   * @function
-   * @param {string} hash The hash of the data to delete.
-   * @memberof module:Storage.Storage-Memory
-   * @instance
-   */
-  const del = async (hash) => {
-    delete memory[hash]
-  }
-
-  /**
-   * Gets data from memory.
-   * @function
-   * @param {string} hash The hash of the data to get.
-   * @memberof module:Storage.Storage-Memory
-   * @instance
-   */
-  const get = async (hash) => {
-    return memory[hash]
-  }
-
-  /**
-   * Iterates over records stored in memory.
-   * @function
-   * @yields [string, string] The next key/value pair from memory.
-   * @memberof module:Storage.Storage-Memory
-   * @instance
-   */
-  const iterator = async function* () {
-    for await (const [key, value] of Object.entries(memory)) {
-      yield [key, value]
-    }
-  }
-
-  /**
-   * Merges data from another source into memory.
-   * @function
-   * @param {module:Storage} other Another storage instance.
-   * @memberof module:Storage.Storage-Memory
-   * @instance
-   */
-  const merge = async (other) => {
-    if (other) {
-      for await (const [key, value] of other.iterator()) {
-        put(key, value)
+  const storage: MemoryStorageInstance<T> = {
+    put: async (hash, data) => {
+      memory.set(hash, data)
+    },
+    del: async (hash) => {
+      memory.delete(hash)
+    },
+    get: async (hash) => {
+      return memory.get(hash) || null
+    },
+    async *iterator() {
+      for await (const [key, value] of memory.entries()) {
+        yield [key, value] as [string, T]
       }
-    }
+    },
+    merge: async (other) => {
+      if (other) {
+        for await (const [key, value] of other.iterator()) {
+          memory.set(key, value)
+        }
+      }
+    },
+    clear: async () => {
+      memory.clear()
+    },
+    close: async () => {},
   }
 
-  /**
-   * Clears the contents of memory.
-   * @function
-   * @memberof module:Storage.Storage-Memory
-   * @instance
-   */
-  const clear = async () => {
-    memory = {}
-  }
-
-  const close = async () => {}
-
-  return {
-    put,
-    del,
-    get,
-    iterator,
-    merge,
-    clear,
-    close,
-  }
+  return storage
 }
-
-export default MemoryStorage

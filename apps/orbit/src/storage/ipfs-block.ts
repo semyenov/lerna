@@ -9,94 +9,50 @@ import { base58btc } from 'multiformats/bases/base58'
 import { CID } from 'multiformats/cid'
 import { TimeoutController } from 'timeout-abort-controller'
 
-import type { StorageInstance } from './level'
+import type { StorageInstance } from './types'
 
 export interface IPFSBlockStorageOptions {
   ipfs: any
   pin?: boolean
   timeout?: number
 }
-export interface IPFSBlockStorageInstance<T = Uint8Array>
-  extends StorageInstance<T> {
-  get: (hash: string) => Promise<T>
-}
+export interface IPFSBlockStorageInstance<T> extends StorageInstance<T> {}
 
-const DefaultTimeout = 30000 // 30 seconds
+const DEFAULT_TIMEOUT = 30000 // 30 seconds
 
-/**
- * Creates an instance of IPFSBlockStorage.
- * @function
- * @param {Object} params One or more parameters for configuring
- * IPFSBlockStorage.
- * @param {IPFS} params.ipfs An IPFS instance.
- * @param {boolean} [params.pin=false] True, if the block should be pinned,
- * false otherwise.
- * @param {number} [params.timeout=defaultTimeout] A timeout in ms.
- * @return {module:Storage.Storage-IPFS} An instance of IPFSBlockStorage.
- * @memberof module:Storage
- * @throw An instance of ipfs is required if params.ipfs is not specified.
- * @instance
- */
-const IPFSBlockStorage = async <T = Uint8Array>({
+export const IPFSBlockStorage = async <T = unknown>({
   ipfs,
   pin,
-  timeout,
-}: IPFSBlockStorageOptions): Promise<IPFSBlockStorageInstance> => {
+  timeout = DEFAULT_TIMEOUT,
+}: IPFSBlockStorageOptions): Promise<IPFSBlockStorageInstance<T>> => {
   if (!ipfs) {
     throw new Error('An instance of ipfs is required.')
   }
 
-  /**
-   * Puts data to an IPFS block.
-   * @function
-   * @param {string} hash The hash of the block to put.
-   * @param {*} data The data to store in the IPFS block.
-   * @memberof module:Storage.Storage-IPFS
-   * @instance
-   */
-  const put = async (hash: string, data: any) => {
-    const cid = CID.parse(hash, base58btc)
-    const { signal } = new TimeoutController(timeout || DefaultTimeout)
-    await ipfs.blockstore.put(cid, data, { signal })
+  const storage: IPFSBlockStorageInstance<T> = {
+    put: async (hash: string, data: any) => {
+      const cid = CID.parse(hash, base58btc)
+      const { signal } = new TimeoutController(timeout)
 
-    if (pin && !(await ipfs.pins.isPinned(cid))) {
-      drain(ipfs.pins.add(cid))
-    }
+      await ipfs.blockstore.put(cid, data, { signal })
+      if (pin && !(await ipfs.pins.isPinned(cid))) {
+        drain(ipfs.pins.add(cid))
+      }
+    },
+    del: async () => {},
+    get: async (hash: string) => {
+      const cid = CID.parse(hash, base58btc)
+      const { signal } = new TimeoutController(timeout || DEFAULT_TIMEOUT)
+      const block = await ipfs.blockstore.get(cid, { signal })
+      if (block) {
+        return block
+      }
+    },
+    async *iterator() {},
+    merge: async () => {},
+    clear: async () => {},
+    close: async () => {},
   }
 
-  const del = async (hash: string) => {}
-
-  /**
-   * Gets data from an IPFS block.
-   * @function
-   * @param {string} hash The hash of the block to get.
-   * @return {Uint8Array} The block.
-   * @memberof module:Storage.Storage-IPFS
-   * @instance
-   */
-  const get = async (hash: string) => {
-    const cid = CID.parse(hash, base58btc)
-    const { signal } = new TimeoutController(timeout || DefaultTimeout)
-    const block = await ipfs.blockstore.get(cid, { signal })
-    if (block) {
-      return block
-    }
-  }
-
-  const iterator = async function* () {}
-  const merge = async (other: IPFSBlockStorageInstance) => {}
-  const clear = async () => {}
-  const close = async () => {}
-
-  return {
-    put,
-    del,
-    get,
-    iterator,
-    merge,
-    clear,
-    close,
-  }
+  return storage
 }
-
-export default IPFSBlockStorage

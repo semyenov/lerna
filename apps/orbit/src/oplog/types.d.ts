@@ -1,7 +1,8 @@
-import type { AccessControllerInstance } from './access-controller'
-import type { IdentitiesInstance, IdentityInstance } from './identities'
-import type { StorageInstance } from './storage'
-import type { IPFS } from './vendor'
+/* eslint-disable no-unused-vars */
+import type { AccessControllerInstance } from '../access-controllers'
+import type { IdentitiesInstance, IdentityInstance } from '../identities'
+import type { StorageInstance } from '../storage'
+import type { HeliaInstance } from '../vendor'
 
 interface Clock {
   id: string
@@ -86,7 +87,7 @@ interface LogInstance<T> {
   close: () => Promise<void>
 }
 declare function Log<T>(
-  ipfs: IPFS,
+  ipfs: HeliaInstance,
   identity: IdentityInstance,
   options?: LogOptions<T>,
 ): Promise<LogInstance<T>>

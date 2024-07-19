@@ -10,9 +10,7 @@
   "cleanups": {
     "suppressTypeErrors": true
   },
-  "include": [
-    "src/**/*.{js,jsx}"
-  ],
+  "include": ["src/**/*.{js,jsx}"],
   "types": {
     "strictNullChecks": true
   },

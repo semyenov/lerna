@@ -1,6 +1,7 @@
-import type { KeyStoreInstance } from './key-store'
-import type { StorageInstance } from './storage'
-import type { IPFS } from './vendor'
+/* eslint-disable no-unused-vars */
+import type { KeyStoreInstance } from '../../key-store'
+import type { StorageInstance } from '../../storage'
+import type { HeliaInstance } from '../../vendor'
 
 interface IdentityProviderGetIdOptions {
   id: string
@@ -41,7 +42,7 @@ interface IdentitiesCreateIdentityOptions {
 interface IdentitiesOptions {
   path?: string
 
-  ipfs?: IPFS
+  ipfs?: HeliaInstance
   keystore?: KeyStoreInstance
   storage?: StorageInstance
 }

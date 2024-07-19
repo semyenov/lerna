@@ -11,7 +11,7 @@ export {
 export { isValidAddress, parseAddress } from './address.js'
 export { Log, Entry, DefaultAccessController } from './oplog/index.js'
 export { default as Database } from './database.js'
-export { default as KeyStore } from './key-store.js'
+export { KeyStore } from './key-store.js'
 
 export {
   useAccessController,

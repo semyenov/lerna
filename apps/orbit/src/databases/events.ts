@@ -8,6 +8,8 @@
  */
 import Database from '../database.js'
 
+import type { Events as E } from './types.js'
+
 const type = 'events'
 
 /**
@@ -15,7 +17,7 @@ const type = 'events'
  * @return {module:Databases.Databases-Events} A Events function.
  * @memberof module:Databases
  */
-const Events =
+const Events: E =
   () =>
   async ({
     ipfs,

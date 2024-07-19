@@ -14,134 +14,110 @@ import {
   IPFSBlockStorage,
   LRUStorage,
   LevelStorage,
+  type StorageInstance,
 } from './storage/index.js'
 import Sync from './sync.js'
 import pathJoin from './utils/path-join.js'
 
-const defaultReferencesCount = 16
+import type { AccessControllerInstance } from './access-controllers'
+import type {
+  IdentitiesInstance,
+  IdentityInstance,
+} from './identities/index.js'
+import type { HeliaInstance, PeerId } from './vendor.js'
+import type { DatabaseEvents } from 'packages/orbitdb/events.js'
+import type { LogInstance } from 'packages/orbitdb/log.js'
+import type { SyncInstance } from 'packages/orbitdb/sync.js'
+
+export interface DatabaseOptions<T> {
+  meta: any
+  name?: string
+  address?: string
+  directory: string
+  referencesCount?: number
+  syncAutomatically?: boolean
+
+  ipfs?: HeliaInstance
+  accessController?: AccessControllerInstance
+  identity?: IdentityInstance
+  identities?: IdentitiesInstance
+  headsStorage?: StorageInstance<any>
+  entryStorage?: StorageInstance<any>
+  indexStorage?: StorageInstance<any>
+  onUpdate?: (entry: Entry.Instance<T>) => void
+}
+export interface DatabaseInstance<T = unknown> {
+  address?: string
+  name?: string
+  type: string
+  peers: Set<PeerId>
+  indexBy: keyof T
+  meta: any
+
+  log: LogInstance<T>
+  sync: SyncInstance<T>
+
+  events: DatabaseEvents<T>
+  access?: AccessControllerInstance
+  identity?: IdentityInstance
+
+  addOperation: (op: any) => Promise<string>
+  close: () => Promise<void>
+  drop: () => Promise<void>
+}
+
+const DEFAULT_REFEREMCES_COUNT = 16
 const defaultCacheSize = 1000
 
-/**
- * Creates an instance of Database.
- * @function
- * @param {Object} params One or more parameters for configuring Database.
- * @param {IPFS} params.ipfs An IPFS instance.
- * @param {Identity} [params.identity] An Identity instance.
- * @param {string} [params.address] The address of the database.
- * @param {string} [params.name] The name of the database.
- * @param {module:AccessControllers} [params.access] An AccessController
- * instance.
- * @param {string} [params.directory] A location for storing Database-related
- * data. Defaults to ./orbitdb/[params.address].
- * @param {*} [params.meta={}] The database's metadata.
- * @param {module:Storage} [params.headsStorage] A compatible storage
- * instance for storing log heads. Defaults to ComposedStorage.
- * @param {module:Storage} [params.entryStorage] A compatible storage instance
- * for storing log entries. Defaults to ComposedStorage.
- * @param {module:Storage} [params.indexStorage] A compatible storage
- * instance for storing an index of log entries. Defaults to ComposedStorage.
- * @param {number} [params.referencesCount=16]  The maximum distance between
- * references to other entries.
- * @param {boolean} [params.syncAutomatically=false] If true, sync databases
- * automatically. Otherwise, false.
- * @param {function} [params.onUpdate] A function callback. Fired when an
- * entry is added to the oplog.
- * @return {module:Databases~Database} An instance of Database.
- * @instance
- */
-const Database = async ({
-  ipfs,
-  identity,
-  address,
-  name,
-  access,
-  directory,
-  meta,
-  headsStorage,
-  entryStorage,
-  indexStorage,
-  referencesCount,
-  syncAutomatically,
-  onUpdate,
-}) => {
-  /**
-   * @namespace module:Databases~Database
-   * @description The instance returned by {@link module:Database~Database}.
-   */
-
-  /**
-   * Event fired when an update occurs.
-   * @event module:Databases~Database#update
-   * @param {module:Entry} entry An entry.
-   * @example
-   * database.events.on('update', (entry) => ...)
-   */
-
-  /**
-   * Event fired when a close occurs.
-   * @event module:Databases~Database#close
-   * @example
-   * database.events.on('close', () => ...)
-   */
-
-  /**
-   * Event fired when a drop occurs.
-   * @event module:Databases~Database#drop
-   * @example
-   * database.events.on('drop', () => ...)
-   */
-
-  /** Events inherited from Sync */
-
-  /**
-   * Event fired when when a peer has connected to the database.
-   * @event module:Databases~Database#join
-   * @param {PeerID} peerId PeerID of the peer who connected
-   * @param {Entry[]} heads An array of Log entries
-   * @example
-   * database.events.on('join', (peerID, heads) => ...)
-   */
-
-  /**
-   * Event fired when a peer has disconnected from the database.
-   * @event module:Databases~Database#leave
-   * @param {PeerID} peerId PeerID of the peer who disconnected
-   * @example
-   * database.events.on('leave', (peerID) => ...)
-   */
-
-  directory = pathJoin(directory || './orbitdb', `./${address}/`)
-  meta = meta || {}
-  referencesCount =
-    Number(referencesCount) > -1 ? referencesCount : defaultReferencesCount
-
-  entryStorage =
+const Database = async <T = any>(
+  {
+    ipfs,
+    identity,
+    address,
+    name,
+    accessController,
+    directory,
+    meta,
+    headsStorage,
+    entryStorage,
+    indexStorage,
+    referencesCount,
+    syncAutomatically,
+    onUpdate,
+  }: DatabaseOptions<T> = {
+    meta: {},
+    directory: './orbitdb',
+    referencesCount: DEFAULT_REFEREMCES_COUNT,
+  },
+) => {
+  const path = pathJoin(directory, `./${address}/`)
+  const entryDB =
     entryStorage ||
-    (await ComposedStorage(
-      await LRUStorage({ size: defaultCacheSize }),
-      await IPFSBlockStorage({ ipfs, pin: true }),
-    ))
+    (await ComposedStorage({
+      storage1: await LRUStorage({ size: defaultCacheSize }),
+      storage2: await IPFSBlockStorage({ ipfs, pin: true }),
+    }))
 
-  headsStorage =
+  const headsDB =
     headsStorage ||
-    (await ComposedStorage(
-      await LRUStorage({ size: defaultCacheSize }),
-      await LevelStorage({ path: pathJoin(directory, '/log/_heads/') }),
-    ))
+    (await ComposedStorage({
+      storage1: await LRUStorage({ size: defaultCacheSize }),
+      storage2: await LevelStorage({ path: pathJoin(path, '/log/_heads/') }),
+    }))
 
-  indexStorage =
+  const indexDB =
     indexStorage ||
-    (await ComposedStorage(
-      await LRUStorage({ size: defaultCacheSize }),
-      await LevelStorage({ path: pathJoin(directory, '/log/_index/') }),
-    ))
+    (await ComposedStorage({
+      storage1: await LRUStorage({ size: defaultCacheSize }),
+      storage2: await LevelStorage({ path: pathJoin(path, '/log/_index/') }),
+    }))
 
   const log = await Log(identity, {
     logId: address,
-    access,
-    entryStorage,
-    headsStorage,
-    indexStorage,
+    accessController,
+    entryStorage: entryDB,
+    headsStorage: headsDB,
+    indexStorage: indexDB,
   })
 
   const events = new EventEmitter()

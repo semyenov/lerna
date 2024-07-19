@@ -4,7 +4,8 @@
  * @description The log's heads.
  * @private
  */
-import MemoryStorage from '../storage/memory.js'
+
+import { MemoryStorage } from '../storage/index.js'
 
 import Entry from './entry.js'
 

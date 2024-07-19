@@ -1,22 +1,25 @@
+/* eslint-disable no-unused-vars */
+
 import type { AccessControllerInstance } from './access-controller'
 import type { DatabaseEvents } from './events'
 import type { IdentityInstance } from './identities'
 import type { Entry, LogInstance } from './log'
 import type { StorageInstance } from './storage'
-import type { SyncInstance } from './sync'
-import type { IPFS, PeerId } from './vendor'
+import type { IdentitiesInstance } from '../../identities/types'
+import type { HeliaInstance, PeerId } from '../../vendor'
 
 interface DatabaseOptions<T> {
-  ipfs: IPFS
-  address?: string
+  meta?: any
   name?: string
+  address?: string
   directory?: string
   referencesCount?: number
   syncAutomatically?: boolean
-  meta?: any
 
+  ipfs?: HeliaInstance
   accessController?: AccessControllerInstance
   identity?: IdentityInstance
+  identities?: IdentitiesInstance
   headsStorage?: StorageInstance
   entryStorage?: StorageInstance
   indexStorage?: StorageInstance
@@ -30,11 +33,12 @@ interface DatabaseInstance<T = unknown> {
   indexBy: keyof T
   meta: any
 
+  log: LogInstance<T>
+  sync: SyncInstance<T>
+
   events: DatabaseEvents<T>
   access?: AccessControllerInstance
   identity?: IdentityInstance
-  log: LogInstance<T>
-  sync: SyncInstance<T>
 
   addOperation: (op: any) => Promise<string>
   close: () => Promise<void>

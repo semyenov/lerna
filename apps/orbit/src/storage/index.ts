@@ -1,32 +1,42 @@
 import type {
   ComposedStorageInstance,
+  ComposedStorageOptions,
+} from './composed.js'
+import type {
   IPFSBlockStorageInstance,
-  LRUStorageInstance,
-  LevelStorageInstance,
-  LevelStorageOptions,
-  MemoryStorageInstance,
-  StorageInstance,
-  StorageType,
-  StorageTypeMap,
-} from './level.js'
+  IPFSBlockStorageOptions,
+} from './ipfs-block.js'
+import type { LevelStorageInstance, LevelStorageOptions } from './level.js'
+import type { LRUStorageInstance, LRUStorageOptions } from './lru.js'
+import type { MemoryStorageInstance, MemoryStorageOptions } from './memory.js'
+import type { StorageInstance } from './types.js'
 
-/**
- * @module Storage
- * @description
- * Storage backends for OrbitDB.
- */
-export { default as ComposedStorage } from './composed.js'
-export { default as IPFSBlockStorage } from './ipfs-block.js'
-export { default as LevelStorage } from './level.js'
-export { default as LRUStorage } from './lru.js'
-export { default as MemoryStorage } from './memory.js'
+interface StorageTypeMap<T> {
+  composed: StorageInstance<T>
+  ipfs: IPFSBlockStorageInstance<T>
+  lru: LRUStorageInstance<T>
+  level: LevelStorageInstance<T>
+  memory: MemoryStorageInstance<T>
+}
+
+type StorageType = keyof StorageTypeMap<unknown>
+
+export { ComposedStorage } from './composed.js'
+export { IPFSBlockStorage } from './ipfs-block.js'
+export { LevelStorage } from './level.js'
+export { LRUStorage } from './lru.js'
+export { MemoryStorage } from './memory.js'
 
 export type {
+  ComposedStorageOptions,
   ComposedStorageInstance,
+  IPFSBlockStorageOptions,
   IPFSBlockStorageInstance,
   LevelStorageOptions,
   LevelStorageInstance,
+  LRUStorageOptions,
   LRUStorageInstance,
+  MemoryStorageOptions,
   MemoryStorageInstance,
   StorageInstance,
   StorageType,

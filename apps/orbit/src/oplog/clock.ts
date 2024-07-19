@@ -1,23 +1,16 @@
-/**
- * @namespace module:Log~Clock
- * @memberof module:Log
- * @description
- * The lamport clock.
- * @private
- */
+export interface ClockInstance {
+  id: string
+  time: number
+}
 
-/**
- * Compares two clocks by time and then, time is the same, by id.
- *
- * compareClocks should never return zero (0). If it does, a and b refer to the
- * same clock.
- * @param {module:Clock} a The first clock.
- * @param {module:Clock} b The second clock.
- * @return {number} Returns a negative integer if clock a is less than clock b
- * otherwise a positive integer is returned.
- * @memberof module:Log~Clock
- */
-const compareClocks = (a, b) => {
+export const Clock = (id: string, time: number) => {
+  return {
+    id,
+    time: time || 0,
+  }
+}
+
+export function compareClocks(a: ClockInstance, b: ClockInstance) {
   // Calculate the "distance" based on the clock, ie. lower or greater
   const dist = a.time - b.time
 
@@ -30,31 +23,6 @@ const compareClocks = (a, b) => {
   return dist
 }
 
-/**
- * Advances a clock's time by 1, returning a new instance of Clock.
- * @param {module:Clock} clock The clock to advance.
- * @return {module:Clock} A new instance of clock with time advanced by 1.
- * @memberof module:Log~Clock
- */
-const tickClock = (clock) => {
+export function tickClock(clock: ClockInstance) {
   return Clock(clock.id, ++clock.time)
 }
-
-/**
- * Creates an instance of Clock.
- * @function
- * @param {string} id A unique identifier.
- * @param {number} [time=0] A natural number (including 0).
- * @memberof module:Log~Clock
- * @instance
- */
-const Clock = (id, time) => {
-  time = time || 0
-
-  return {
-    id,
-    time,
-  }
-}
-
-export { Clock as default, compareClocks, tickClock }

@@ -1,32 +1,141 @@
-/**
- * @module KeyStore
- * @description
- * Provides a local key manager for OrbitDB.
- * @example <caption>Create a keystore with defaults.</caption>
- * const keystore = await KeyStore()
- * @example <caption>Create a keystore with custom storage.</caption>
- * const storage = await MemoryStorage()
- * const keystore = await KeyStore({ storage })
- */
+/* eslint-disable no-unused-vars */
 import * as crypto from '@libp2p/crypto'
 import { compare as uint8ArrayCompare } from 'uint8arrays/compare'
 import { fromString as uint8ArrayFromString } from 'uint8arrays/from-string'
 import { toString as uint8ArrayToString } from 'uint8arrays/to-string'
 
-import ComposedStorage from './storage/composed.js'
-import LevelStorage from './storage/level.js'
-import LRUStorage from './storage/lru.js'
+import { ComposedStorage, LRUStorage, LevelStorage } from './storage/index.js'
 
-import type { KeyStoreInstance } from '../types/key-store.js'
-import type { StorageInstance } from '../types/storage.js'
-import type { Secp256k1PrivateKey } from '@libp2p/crypto/keys'
+import type { StorageInstance } from './storage'
+import type { PrivateKey, PublicKey } from './vendor'
+
+export interface KeyStoreOptions {
+  storage?: StorageInstance<Uint8Array>
+  path?: string
+}
+
+export abstract class KeyStoreInstance {
+  abstract createKey: (id: string) => Promise<PrivateKey<'secp256k1'>>
+
+  abstract hasKey: (id: string) => Promise<boolean>
+  abstract addKey: (id: string, key: PrivateKey<'secp256k1'>) => Promise<void>
+  abstract removeKey: (id: string) => Promise<void>
+
+  abstract getKey: (id: string) => Promise<PrivateKey<'secp256k1'> | null>
+  abstract getPublic: (id: string) => Promise<PublicKey<'secp256k1'> | null>
+
+  abstract clear: () => Promise<void>
+  abstract close: () => Promise<void>
+}
+
+const DEFAULT_PATH = './keystore'
+const VERIFIED_CACHE = LRUStorage<{ publicKey: string; data: string }>({
+  size: 1000,
+})
+
+export const KeyStore = async (
+  { storage, path }: { path: string; storage?: StorageInstance<Uint8Array> } = {
+    path: DEFAULT_PATH,
+  },
+) => {
+  const db: StorageInstance<Uint8Array> =
+    storage ||
+    (await ComposedStorage<Uint8Array>({
+      storage1: await LRUStorage<Uint8Array>({ size: 1000 }),
+      storage2: await LevelStorage<Uint8Array>({ path }),
+    }))
+
+  const keyStore: KeyStoreInstance = {
+    clear: async () => {
+      await db.clear()
+    },
+    close: async () => {
+      await db.close()
+    },
+    hasKey: async (id) => {
+      if (!id) {
+        throw new Error('id needed to check a key')
+      }
+
+      let hasKey = false
+      try {
+        const storedKey = await db.get(`private_${id}`)
+        hasKey = storedKey !== undefined && storedKey !== null
+      } catch {
+        // Catches 'Error: ENOENT: no such file or directory, open <path>'
+        console.error('Error: ENOENT: no such file or directory')
+      }
+
+      return hasKey
+    },
+    addKey: async (id, key) => {
+      await db.put(`private_${id}`, key)
+    },
+    createKey: async (id) => {
+      if (!id) {
+        throw new Error('id needed to create a key')
+      }
+
+      const keys = await crypto.keys.generateKeyPair('secp256k1')
+      await db.put(`private_${id}`, keys.marshal())
+
+      return keys
+    },
+    getKey: async (id) => {
+      if (!id) {
+        throw new Error('id needed to get a key')
+      }
+
+      const storedKey = await db.get(`private_${id}`)
+      if (!storedKey) {
+        return Promise.resolve(null)
+      }
+
+      return unmarshal(storedKey)
+    },
+    getPublic: async (id: string) => {
+      const keys = await keyStore.getKey(id)
+      if (!keys) {
+        throw new Error('keys needed to get a public key')
+      }
+
+      return unmarshalPubKey(keys.public.bytes)
+    },
+    removeKey: async (id) => {
+      if (!id) {
+        throw new Error('id needed to remove a key')
+      }
+
+      await db.del(`private_${id}`)
+    },
+  }
+
+  return keyStore
+}
 
 const unmarshal =
   crypto.keys.supportedKeys.secp256k1.unmarshalSecp256k1PrivateKey
 const unmarshalPubKey =
   crypto.keys.supportedKeys.secp256k1.unmarshalSecp256k1PublicKey
 
-const verifySignature = async (signature, publicKey, data) => {
+async function verify(publicKey: string, data: string, signature: string) {
+  const pubKey = unmarshalPubKey(uint8ArrayFromString(publicKey, 'base16'))
+
+  if (!pubKey) {
+    throw new Error('Public key could not be decoded')
+  }
+
+  return pubKey.verify(
+    uint8ArrayFromString(data, 'utf8'),
+    uint8ArrayFromString(signature, 'base16'),
+  )
+}
+
+async function verifySignature(
+  signature: string,
+  publicKey: string,
+  data: string,
+) {
   if (!signature) {
     throw new Error('No signature given')
   }
@@ -37,40 +146,13 @@ const verifySignature = async (signature, publicKey, data) => {
     throw new Error('Given input data was undefined')
   }
 
-  if (!(data instanceof Uint8Array)) {
-    data =
-      typeof data === 'string'
-        ? uint8ArrayFromString(data)
-        : new Uint8Array(data)
-  }
-
-  const isValid = (key, msg, sig) => key.verify(msg, sig)
-
-  let res = false
-  try {
-    const pubKey = unmarshalPubKey(uint8ArrayFromString(publicKey, 'base16'))
-    res = await isValid(pubKey, data, uint8ArrayFromString(signature, 'base16'))
-  } catch {
-    // Catch error: sig length wrong
-  }
-
-  return Promise.resolve(res)
+  return verify(publicKey, data, signature)
 }
 
-/**
- * Signs data using a key pair.
- * @param {Secp256k1PrivateKey} key The key to use for signing data.
- * @param {string|Uint8Array} data The data to sign.
- * @return {string} A signature.
- * @throws No signing key given if no key is provided.
- * @throws Given input data was undefined if no data is provided.
- * @static
- * @private
- */
-const signMessage = async (
-  key: Secp256k1PrivateKey,
+export async function signMessage(
+  key: PrivateKey,
   data: string | Uint8Array,
-): Promise<string> => {
+): Promise<string> {
   if (!key) {
     throw new Error('No signing key given')
   }
@@ -79,234 +161,38 @@ const signMessage = async (
     throw new Error('Given input data was undefined')
   }
 
-  if (!(data instanceof Uint8Array)) {
-    data =
-      typeof data === 'string'
-        ? uint8ArrayFromString(data)
-        : new Uint8Array(data)
-  }
-
-  return uint8ArrayToString(await key.sign(data), 'base16')
+  const signature = await key.sign(
+    typeof data === 'string'
+      ? uint8ArrayFromString(data)
+      : new Uint8Array(data),
+  )
+  return uint8ArrayToString(signature, 'base16')
 }
 
-const verifiedCachePromise = LRUStorage({ size: 1000 })
-
-/**
- * Verifies input data against a cached version of the signed message.
- * @param {string} signature The generated signature.
- * @param {string} publicKey The derived public key of the key pair.
- * @param {string} data The data to be verified.
- * @return {boolean} True if the the data and cache match, false otherwise.
- * @static
- * @private
- */
-const verifyMessage = async (
+export async function verifyMessage(
   signature: string,
   publicKey: string,
   data: string,
-): Promise<boolean> => {
-  const verifiedCache = await verifiedCachePromise
+): Promise<boolean> {
+  const verifiedCache = await VERIFIED_CACHE
   const cached = await verifiedCache.get(signature)
-
-  let res = false
-
   if (!cached) {
     const verified = await verifySignature(signature, publicKey, data)
-    res = verified
     if (verified) {
       await verifiedCache.put(signature, { publicKey, data })
     }
-  } else {
-    const compare = (cached: Uint8Array, data: string | Uint8Array) => {
-      const match =
-        data instanceof Uint8Array
-          ? uint8ArrayCompare(cached, data) === 0
-          : cached.toString() === data.toString()
-      return match
-    }
-    res = cached.publicKey === publicKey && compare(cached.data, data)
+
+    return verified
   }
-  return res
+
+  const compare = (cached: Uint8Array, data: string | Uint8Array) => {
+    return data instanceof Uint8Array
+      ? uint8ArrayCompare(cached, data) === 0
+      : cached.toString() === data
+  }
+
+  return (
+    cached.publicKey === publicKey &&
+    compare(uint8ArrayFromString(cached.data), data)
+  )
 }
-
-const defaultPath = './keystore'
-
-/**
- * Creates an instance of KeyStore.
- * @param {Object} params One or more parameters for configuring KeyStore.
- * @param {Object} [params.storage] An instance of a storage class. Can be one
- * of ComposedStorage, IPFSBlockStorage, LevelStorage, etc. Defaults to
- * ComposedStorage.
- * @param {string} [params.path=./keystore] The path to a valid storage.
- * @return {module:KeyStore~KeyStore} An instance of KeyStore.
- * @instance
- */
-const KeyStore = async ({
-  storage,
-  path,
-}: {
-  storage?: StorageInstance
-  path?: string
-} = {}): Promise<KeyStoreInstance> => {
-  /**
-   * @namespace module:KeyStore~KeyStore
-   * @description The instance returned by {@link module:KeyStore}.
-   */
-  storage =
-    storage ||
-    (await ComposedStorage(
-      await LRUStorage({ size: 1000 }),
-      await LevelStorage({ path: path || defaultPath }),
-    ))
-
-  /**
-   * Closes the KeyStore's underlying storage.
-   * @memberof module:KeyStore~KeyStore
-   * @async
-   * @instance
-   */
-  const close = async () => {
-    await storage.close()
-  }
-
-  /**
-   * Clears the KeyStore's underlying storage.
-   * @memberof module:KeyStore~KeyStore
-   * @async
-   * @instance
-   */
-  const clear = async () => {
-    await storage.clear()
-  }
-
-  /**
-   * Checks if a key exists in the key store .
-   * @param {string} id The id of an [Identity]{@link module:Identities~Identity} to check the key for.
-   * @return {boolean} True if the key exists, false otherwise.
-   * @throws id needed to check a key if no id is specified.
-   * @memberof module:KeyStore~KeyStore
-   * @async
-   * @instance
-   */
-  const hasKey = async (id) => {
-    if (!id) {
-      throw new Error('id needed to check a key')
-    }
-
-    let hasKey = false
-    try {
-      const storedKey = await storage.get(`private_${id}`)
-      hasKey = storedKey !== undefined && storedKey !== null
-    } catch {
-      // Catches 'Error: ENOENT: no such file or directory, open <path>'
-      console.error('Error: ENOENT: no such file or directory')
-    }
-
-    return hasKey
-  }
-
-  /**
-   * Adds a private key to the keystore.
-   * @param {string} id An id of the [Identity]{@link module:Identities~Identity} to whom the key belongs to.
-   * @param {Uint8Array} key The private key to store.
-   * @memberof module:KeyStore~KeyStore
-   * @async
-   * @instance
-   */
-  const addKey = async (id, key) => {
-    await storage.put(`private_${id}`, key.privateKey)
-  }
-
-  /**
-   * Creates a key pair and stores it to the keystore.
-   * @param {string} id An id of the [Identity]{@link module:Identities~Identity} to generate the key pair for.
-   * @throws id needed to create a key if no id is specified.
-   * @memberof module:KeyStore~KeyStore
-   * @async
-   * @instance
-   */
-  const createKey = async (id) => {
-    if (!id) {
-      throw new Error('id needed to create a key')
-    }
-
-    // Generate a private key
-    const pair = await crypto.keys.generateKeyPair('secp256k1')
-    const keys = await crypto.keys.unmarshalPrivateKey(pair.bytes)
-    const pubKey = keys.public.marshal()
-
-    const key = {
-      publicKey: pubKey,
-      privateKey: keys.marshal(),
-    }
-
-    await addKey(id, key)
-
-    return keys
-  }
-
-  /**
-   * Gets a key from keystore.
-   * @param {string} id An id of the [Identity]{@link module:Identities~Identity} whose key to retrieve.
-   * @return {Uint8Array} The key specified by id.
-   * @throws id needed to get a key if no id is specified.
-   * @memberof module:KeyStore~KeyStore
-   * @async
-   * @instance
-   */
-  const getKey = async (id) => {
-    if (!id) {
-      throw new Error('id needed to get a key')
-    }
-
-    let storedKey
-    try {
-      storedKey = await storage.get(`private_${id}`)
-    } catch {
-      // ignore ENOENT error
-    }
-
-    if (!storedKey) {
-      return
-    }
-
-    return unmarshal(storedKey)
-  }
-
-  /**
-   * Gets the serialized public key from a key pair.
-   * @param {*} keys A key pair.
-   * @param {Object} options One or more options.
-   * @param {Object} [options.format=hex] The format the public key should be
-   * returned in.
-   * @return {Uint8Array|String} The public key.
-   * @throws Supported formats are `hex` and `buffer` if an invalid format is
-   * passed in options.
-   * @memberof module:KeyStore~KeyStore
-   * @async
-   * @instance
-   */
-  const getPublic = (keys, options = {}) => {
-    const formats = ['hex', 'buffer']
-    const format = options.format || 'hex'
-    if (!formats.includes(format)) {
-      throw new Error('Supported formats are `hex` and `buffer`')
-    }
-
-    const pubKey = keys.public.marshal()
-
-    return format === 'buffer' ? pubKey : uint8ArrayToString(pubKey, 'base16')
-  }
-
-  return {
-    clear,
-    close,
-    hasKey,
-    addKey,
-    createKey,
-    getKey,
-    getPublic,
-  }
-}
-
-export { KeyStore as default, verifyMessage, signMessage }
