@@ -1,11 +1,12 @@
 import {
+  type AccessController,
   type AccessControllerInstance,
   type AccessControllerOptions,
   IPFSAccessController,
   getAccessController,
 } from './access-controllers/index.js'
 import { OrbitDBAddress, isValidAddress } from './address.js'
-import { getDatabaseType } from './databases/index.js'
+import { type DatabaseType, getDatabaseType } from './databases/index.js'
 import {
   Identities,
   type IdentitiesInstance,
@@ -20,20 +21,18 @@ import type { DatabaseInstance } from './database.js'
 import type { StorageInstance } from './storage/index.js'
 import type { HeliaInstance, PeerId } from './vendor.js'
 
-export interface OrbitDBOpenOptions<D extends keyof DatabasesTypeMap> {
+export interface OrbitDBOpenOptions<T, D extends string = string> {
   type?: D
   meta?: any
   sync?: boolean
   referencesCount?: number
 
-  Database?: Databases<keyof DatabasesTypeMap, DatabaseInstance>
-  AccessController?: (
-    options: AccessControllerOptions,
-  ) => AccessControllerInstance
+  Database?: DatabaseType
+  AccessController?: ReturnType<AccessController<string, any>>
 
-  headsStorage?: StorageInstance
-  entryStorage?: StorageInstance
-  indexStorage?: StorageInstance
+  headsStorage?: StorageInstance<T>
+  entryStorage?: StorageInstance<T>
+  indexStorage?: StorageInstance<boolean>
 }
 
 export interface OrbitDBOptions {
@@ -52,10 +51,10 @@ export interface OrbitDBInstance {
   identity: IdentityInstance
   peerId: PeerId
 
-  open: <T, D extends keyof DatabasesTypeMap>(
+  open: <T, D extends string>(
     address: string,
-    options?: OrbitDBOpenOptions<D>,
-  ) => Promise<DatabasesTypeMap<T>[D]>
+    options?: OrbitDBOpenOptions<T, D>,
+  ) => Promise<DatabaseType<D>>
   stop: () => Promise<void>
 }
 
@@ -109,7 +108,7 @@ const OrbitDB = async ({
 
   const databases: Record<string, DatabaseInstance> = {}
 
-  const open = async <T, D extends keyof DatabasesTypeMap>(
+  const open = async <T, D extends string>(
     address: string,
     {
       type,
@@ -122,11 +121,11 @@ const OrbitDB = async ({
       indexStorage,
       referencesCount,
     }: OrbitDBOpenOptions<D> = {},
-  ): Promise<DatabasesTypeMap<T>[D]> => {
+  ): Promise<DatabaseType<D>> => {
     let name: string, manifest: any, accessController: AccessControllerInstance
 
     if (databases[address!]) {
-      return databases[address!] as DatabasesTypeMap<T>[D]
+      return databases[address!] as DatabaseType<D>
     }
 
     if (isValidAddress(address)) {
@@ -161,7 +160,7 @@ const OrbitDB = async ({
       name = manifest.name
       meta = meta || manifest.meta
       if (databases[address!]) {
-        return databases[address!] as DatabasesTypeMap<T>[D]
+        return databases[address!] as DatabaseType<D>
       }
     }
 
@@ -190,7 +189,7 @@ const OrbitDB = async ({
 
     databases[address] = db
 
-    return db as DatabasesTypeMap<T>[D]
+    return db as DatabaseType<D>
   }
 
   const onDatabaseClosed = (address: string) => (): void => {

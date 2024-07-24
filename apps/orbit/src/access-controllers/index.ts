@@ -44,7 +44,7 @@ const accessControllers: Record<
 
 const getAccessController = <T extends keyof typeof accessControllers>(
   type: T,
-): AccessController<any, any> => {
+): ReturnType<AccessController<T, any>> => {
   if (!accessControllers[type!]) {
     throw new Error(`AccessController type '${type}' is not supported`)
   }
