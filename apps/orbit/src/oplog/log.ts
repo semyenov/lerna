@@ -62,7 +62,7 @@ export interface LogInstance<T> {
     ) => Promise<boolean>,
     useRefs?: boolean,
   ) => AsyncGenerator<EntryInstance<T>>
-  iterator: (options: LogIteratorOptions) => AsyncIterable<EntryInstance<T>>
+  iterator: (options?: LogIteratorOptions) => AsyncIterable<EntryInstance<T>>
   clear: () => Promise<void>
   close: () => Promise<void>
 }

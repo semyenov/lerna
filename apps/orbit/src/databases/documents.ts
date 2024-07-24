@@ -9,16 +9,16 @@ import type { DatabaseType } from './index.js'
 const type = 'documents'
 
 export interface DocumentsDoc<T = unknown> {
-  hash: string
-  key: string
-  value: T
+  hash?: string
+  key?: string
+  value: T | null
 }
 
 export interface DocumentsIteratorOptions {
   amount?: number
 }
 
-export interface DocumentsOptions<T> {
+export interface DocumentsOptions {
   indexBy?: string
 }
 
@@ -58,9 +58,7 @@ export const Documents: DatabaseType<'documents'> = () => {
     syncAutomatically,
     onUpdate,
     indexBy = '_id',
-  }: DatabaseOptions<T> & DocumentsOptions<T>): Promise<
-    DocumentsInstance<T>
-  > => {
+  }: DatabaseOptions<T> & DocumentsOptions): Promise<DocumentsInstance<T>> => {
     const database = await Database<T>({
       ipfs,
       identity,
@@ -149,8 +147,8 @@ export const Documents: DatabaseType<'documents'> = () => {
       const results: T[] = []
 
       for await (const doc of iterator()) {
-        if (findFn(doc.value)) {
-          results.push(doc.value)
+        if (findFn(doc.value!)) {
+          results.push(doc.value!)
         }
       }
 
@@ -180,8 +178,12 @@ export const Documents: DatabaseType<'documents'> = () => {
         if (op === 'PUT' && !keys[key!]) {
           keys[key!] = true
           count++
-          const hash = entry.hash
-          yield { hash, key, value } satisfies DocumentsDoc<T>
+          const hash = entry.hash!
+          yield {
+            hash,
+            key: key!,
+            value: value || null,
+          } satisfies DocumentsDoc<T>
         } else if (op === 'DEL' && !keys[key!]) {
           keys[key!] = true
         }
