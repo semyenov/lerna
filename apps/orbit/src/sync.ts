@@ -1,4 +1,4 @@
-import { EventEmitter } from 'node:events'
+import { EventEmitter } from 'events'
 
 import { pipe } from 'it-pipe'
 import PQueue from 'p-queue'
