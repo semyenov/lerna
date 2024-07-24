@@ -74,8 +74,8 @@ export interface DatabaseInstance<T = unknown> {
   sync: SyncInstance<DatabaseOperation<T>>
 
   events: DatabaseEvents<T>
-  identity?: IdentityInstance
-  accessController?: AccessControllerInstance
+  identity: IdentityInstance
+  accessController: AccessControllerInstance
 
   addOperation: (op: DatabaseOperation<T>) => Promise<string>
   close: () => Promise<void>
@@ -226,7 +226,7 @@ export const Database = async <T = any>({
      * @instance
      */
     name,
-    identity,
+    identity: identity!,
     meta,
     close,
     drop,
@@ -264,6 +264,6 @@ export const Database = async <T = any>({
      * @memberof module:Databases~Database
      * @instance
      */
-    accessController,
+    accessController: accessController!,
   }
 }

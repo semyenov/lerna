@@ -16,7 +16,7 @@ const type = 'keyvalue'
 
 export interface KeyValueDatabaseOptions<T = unknown>
   extends DatabaseOptions<T> {
-  ipfs?: HeliaInstance
+  ipfs: HeliaInstance
   identity?: IdentityInstance
   address?: string
   name?: string
@@ -30,7 +30,7 @@ export interface KeyValueDatabaseOptions<T = unknown>
   syncAutomatically?: boolean
   onUpdate?: (
     log: LogInstance<DatabaseOperation<T>>,
-    entry: EntryInstance<T>,
+    entry: EntryInstance<T> | EntryInstance<DatabaseOperation<T>>,
   ) => Promise<void>
 }
 

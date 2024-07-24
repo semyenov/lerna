@@ -102,12 +102,12 @@ interface KeyValueIndexedOptions {
 
 interface KeyValueIndexedInstance<T = unknown> extends IKeyValue<T> {}
 
-interface DatabasesTypeMap<T = unknown> {
+export interface DatabasesTypeMap<T = unknown> {
   documents: IDocuments<T>
   events: EventsInstance<T>
   keyvalue: IKeyValue<T> | KeyValueIndexedInstance<T>
 }
-type Databases<T extends keyof DatabasesTypeMap, U extends IDatabase> = {
+export type Databases<T extends keyof DatabasesTypeMap, U extends IDatabase> = {
   type: T
 
   (options: DatabaseOptions): Promise<U>

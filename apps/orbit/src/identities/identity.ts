@@ -3,11 +3,14 @@ import { base58btc } from 'multiformats/bases/base58'
 import * as Block from 'multiformats/block'
 import { sha256 } from 'multiformats/hashes/sha2'
 
+import type { IdentityProviderInstance } from './providers'
+
 export interface IdentityOptions {
   id: string
   type: string
   publicKey: string
   signatures: { id: string; publicKey: string }
+  provider?: IdentityProviderInstance
 
   sign?: (data: any) => Promise<string>
   verify?: (data: any, signature: string) => Promise<boolean>

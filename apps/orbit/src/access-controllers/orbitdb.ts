@@ -7,9 +7,9 @@ import { createId } from '../utils/index.js'
 
 import { IPFSAccessController } from './ipfs.js'
 
-import type { AccessController, AccessControllerInstance } from './index.js'
+import type { AccessControllerInstance, AccessControllerType } from './index.js'
+import type { DatabaseEvents } from '../database.js'
 import type { EntryInstance } from '../oplog/entry.js'
-import type { DatabaseEvents } from 'packages/orbitdb/events.js'
 
 const CONTROLLER_TYPE = 'orbitdb'
 
@@ -18,7 +18,7 @@ export interface OrbitDBAccessControllerInstance
   type: string
   events: DatabaseEvents
   address: string
-  write?: string[]
+  write: string[]
 
   close: () => Promise<void>
   drop: () => Promise<void>
@@ -29,7 +29,7 @@ export interface OrbitDBAccessControllerInstance
   revoke: (capability: string, key: string) => Promise<void>
 }
 
-export const OrbitDBAccessController: AccessController<
+export const OrbitDBAccessController: AccessControllerType<
   'orbitdb',
   OrbitDBAccessControllerInstance
 > =
@@ -80,7 +80,10 @@ export const OrbitDBAccessController: AccessController<
         // Add the root access controller's 'write' access list
         // as admins on this controller
         ...{
-          admin: new Set([...(_capabilities.admin || []), ...db.access.write]),
+          admin: new Set([
+            ...(_capabilities.admin || []),
+            ...db.accessController.write,
+          ]),
         },
       }).forEach(toSet)
 
@@ -136,7 +139,7 @@ export const OrbitDBAccessController: AccessController<
     const accessController: OrbitDBAccessControllerInstance = {
       type: CONTROLLER_TYPE,
       address: address_,
-      write,
+      write: write_,
       canAppend,
       capabilities,
       hasCapability,

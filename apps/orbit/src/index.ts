@@ -1,4 +1,4 @@
-export { default as createOrbitDB } from './orbitdb.js'
+export { OrbitDB as createOrbitDB } from './orbitdb.js'
 
 export {
   Documents,

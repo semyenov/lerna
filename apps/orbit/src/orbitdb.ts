@@ -1,12 +1,15 @@
 import {
-  type AccessController,
   type AccessControllerInstance,
-  type AccessControllerOptions,
+  type AccessControllerType,
   IPFSAccessController,
   getAccessController,
 } from './access-controllers/index.js'
 import { OrbitDBAddress, isValidAddress } from './address.js'
-import { type DatabaseType, getDatabaseType } from './databases/index.js'
+import {
+  type DatabaseType,
+  type DatabaseTypeMap,
+  getDatabaseType,
+} from './databases/index.js'
 import {
   Identities,
   type IdentitiesInstance,
@@ -17,18 +20,17 @@ import { ManifestStore } from './manifest-store.js'
 import { join } from './utils'
 import { createId } from './utils/index.js'
 
-import type { DatabaseInstance } from './database.js'
 import type { StorageInstance } from './storage/index.js'
 import type { HeliaInstance, PeerId } from './vendor.js'
 
-export interface OrbitDBOpenOptions<T, D extends string = string> {
+export interface OrbitDBOpenOptions<T, D extends keyof DatabaseTypeMap<T>> {
   type?: D
   meta?: any
   sync?: boolean
   referencesCount?: number
 
-  Database?: DatabaseType
-  AccessController?: ReturnType<AccessController<string, any>>
+  Database?: ReturnType<DatabaseType>
+  AccessController?: ReturnType<AccessControllerType<string, any>>
 
   headsStorage?: StorageInstance<T>
   entryStorage?: StorageInstance<T>
@@ -51,10 +53,10 @@ export interface OrbitDBInstance {
   identity: IdentityInstance
   peerId: PeerId
 
-  open: <T, D extends string>(
+  open: <T, D extends keyof DatabaseTypeMap<T>>(
     address: string,
     options?: OrbitDBOpenOptions<T, D>,
-  ) => Promise<DatabaseType<D>>
+  ) => Promise<DatabaseTypeMap<T>[D]>
   stop: () => Promise<void>
 }
 
@@ -105,10 +107,9 @@ const OrbitDB = async ({
   }
 
   const manifestStore = await ManifestStore({ ipfs })
+  const databases: Record<string, any> = {}
 
-  const databases: Record<string, DatabaseInstance> = {}
-
-  const open = async <T, D extends string>(
+  const open = async <T, D extends keyof DatabaseTypeMap<T>>(
     address: string,
     {
       type,
@@ -120,64 +121,75 @@ const OrbitDB = async ({
       entryStorage,
       indexStorage,
       referencesCount,
-    }: OrbitDBOpenOptions<D> = {},
-  ): Promise<DatabaseType<D>> => {
-    let name: string, manifest: any, accessController: AccessControllerInstance
+    }: OrbitDBOpenOptions<T, D> = {},
+  ): Promise<DatabaseTypeMap<T>[D]> => {
+    let name: string,
+      manifest: any,
+      accessController: AccessControllerInstance,
+      address_: string = address,
+      type_: D = type!,
+      meta_: any = meta
 
-    if (databases[address!]) {
-      return databases[address!] as DatabaseType<D>
+    if (databases[address_!]) {
+      return databases[address_!] as DatabaseTypeMap<T>[D]
     }
 
-    if (isValidAddress(address)) {
-      const addr = OrbitDBAddress(address)
+    if (isValidAddress(address_)) {
+      const addr = OrbitDBAddress(address_)
       manifest = await manifestStore.get(addr.hash)
       const acType = manifest.accessController.split('/', 2).pop()
-      const AccessControllerType = getAccessController(acType)
+      const AccessControllerType = getAccessController(acType)({})
       accessController = await AccessControllerType({
-        orbitdb: { open, identity: finalIdentity, ipfs },
+        // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
+        orbitdb: {
+          open,
+          identity: finalIdentity,
+          ipfs,
+        } as OrbitDBInstance,
         identities: identities_,
         address: manifest.accessController,
       })
       name = manifest.name
-      type = type || manifest.type
-      meta = meta || manifest.meta
+      type_ = type_ || manifest.type
+      meta_ = meta_ || manifest.meta
     } else {
-      type = type || DEFAULT_DATABASE_TYPE
+      type_ = type_ || DEFAULT_DATABASE_TYPE
       const AccessControllerType = AccessController || DEFAULT_ACCESS_CONTROLLER
       accessController = await AccessControllerType({
-        orbitdb: { open, identity: finalIdentity, ipfs },
+        // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
+        orbitdb: { open, identity: finalIdentity, ipfs } as OrbitDBInstance,
         identities: identities_,
-        name: address,
+        name: address_,
       })
       const m = await manifestStore.create({
-        name: address,
-        type,
-        accessController: accessController.address,
-        meta,
+        name: address_,
+        type: type_,
+        accessController: accessController.address!,
+        meta: meta_,
       })
       manifest = m.manifest
-      address = m.hash
+      address_ = m.hash
       name = manifest.name
-      meta = meta || manifest.meta
-      if (databases[address!]) {
-        return databases[address!] as DatabaseType<D>
+      meta_ = meta_ || manifest.meta
+      if (databases[address_!]) {
+        return databases[address_!] as DatabaseTypeMap<T>[D]
       }
     }
 
-    const DatabaseType = Database || getDatabaseType(type)
+    const DatabaseType = Database || getDatabaseType(type_!)
 
     if (!DatabaseType) {
-      throw new Error(`Unsupported database type: '${type}'`)
+      throw new Error(`Unsupported database type: '${type_}'`)
     }
 
     const db = await DatabaseType({
       ipfs,
       identity: finalIdentity,
-      address,
+      address: address_,
       name,
-      access: accessController,
+      meta: meta_,
       directory: defaultDirectory,
-      meta,
+      accessController,
       syncAutomatically: sync,
       headsStorage,
       entryStorage,
@@ -185,15 +197,15 @@ const OrbitDB = async ({
       referencesCount,
     })
 
-    db.events.on('close', onDatabaseClosed(address))
+    db.events.on('close', onDatabaseClosed(address_))
 
-    databases[address] = db
+    databases[address_!] = db
 
-    return db as DatabaseType<D>
+    return db as DatabaseTypeMap<T>[D]
   }
 
   const onDatabaseClosed = (address: string) => (): void => {
-    delete databases[address]
+    delete databases[address!]
   }
 
   /**
@@ -213,7 +225,7 @@ const OrbitDB = async ({
     if (manifestStore) {
       await manifestStore.close()
     }
-    Object.keys(databases).forEach((key) => delete databases[key])
+    Object.keys(databases).forEach((key) => delete databases[key!])
   }
 
   return {

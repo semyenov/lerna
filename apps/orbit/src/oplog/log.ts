@@ -85,6 +85,7 @@ const DEFAULT_ACCESS_CONTROLLER =
   async (): Promise<AccessControllerInstance> => {
     // An AccessController may do any async initialization stuff here...
     return {
+      write: [],
       canAppend: async (_entry: EntryInstance<any>) => true,
     }
   }

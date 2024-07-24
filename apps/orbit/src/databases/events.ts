@@ -22,7 +22,7 @@ export interface EventsIteratorOptions {
   amount?: number
 }
 
-interface EventsInstance<T = unknown> extends DatabaseInstance<T> {
+export interface EventsInstance<T = unknown> extends DatabaseInstance<T> {
   type: 'events'
 
   add: (value: T) => Promise<string>

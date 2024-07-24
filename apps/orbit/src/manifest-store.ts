@@ -10,12 +10,12 @@ import {
   type StorageInstance,
 } from './storage/index.js'
 
+import type { DatabaseTypeMap } from './databases/index.js'
 import type { HeliaInstance } from './vendor.js'
-import type { DatabasesTypeMap } from 'packages/orbitdb/databases.js'
 
 interface Manifest {
   name: string
-  type: keyof DatabasesTypeMap
+  type: keyof DatabaseTypeMap<any>
   accessController: string
   meta?: any
 }

@@ -42,14 +42,11 @@ export interface IdentitiesInstance {
   getIdentity: (id: string) => Promise<IdentityInstance | null>
   verifyIdentity: (identity: IdentityInstance) => Promise<boolean>
   keystore: KeyStoreInstance
-  sign: (
-    identity: IdentityInstance,
-    data: string | Uint8Array,
-  ) => Promise<string>
+  sign: (identity: IdentityInstance, data: string) => Promise<string>
   verify: (
     signature: string,
     publickey: string,
-    data: string | Uint8Array,
+    data: string,
   ) => Promise<boolean>
 }
 

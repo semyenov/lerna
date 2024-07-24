@@ -25,7 +25,7 @@ export const Index =
 
     const update = async (
       log: LogInstance<DatabaseOperation<T>>,
-      entry: EntryInstance<T>,
+      entry: EntryInstance<T> | EntryInstance<DatabaseOperation<T>>,
     ) => {
       const keys = new Set()
       const toBeIndexed = new Set()
@@ -221,7 +221,7 @@ export const KeyValueIndexed: DatabaseType<'keyvalue-indexed'> = () => {
       iterator,
       close,
       drop,
-    }
+    } as unknown as KeyValueIndexedInstance<T>
   }
 }
 

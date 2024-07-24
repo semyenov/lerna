@@ -11,7 +11,7 @@ import {
 } from '../storage/index.js'
 import { join } from '../utils'
 
-import type { AccessController, AccessControllerInstance } from './index.js'
+import type { AccessControllerInstance, AccessControllerType } from './index.js'
 import type { EntryInstance } from '../oplog/entry.js'
 
 const codec = dagCbor
@@ -47,7 +47,7 @@ export interface IPFSAccessControllerInstance extends AccessControllerInstance {
   canAppend: (entry: EntryInstance) => Promise<boolean>
 }
 
-export const IPFSAccessController: AccessController<
+export const IPFSAccessController: AccessControllerType<
   'ipfs',
   IPFSAccessControllerInstance
 > =

@@ -1,7 +1,10 @@
-import { Documents } from './documents.js'
-import { Events } from './events.js'
-import { KeyValueIndexed } from './keyvalue-indexed.js'
-import { KeyValue } from './keyvalue.js'
+import { Documents, type DocumentsInstance } from './documents.js'
+import { Events, type EventsInstance } from './events.js'
+import {
+  KeyValueIndexed,
+  type KeyValueIndexedInstance,
+} from './keyvalue-indexed.js'
+import { KeyValue, type KeyValueInstance } from './keyvalue.js'
 
 import type { DatabaseInstance, DatabaseOptions } from '../database.js'
 
@@ -15,15 +18,21 @@ export type DatabaseType<K extends string = string> = {
   type: K
   (): <T = unknown>(options: DatabaseOptions<T>) => Promise<DatabaseInstance<T>>
 }
+export type DatabaseTypeMap<T = unknown> = {
+  events: EventsInstance<T>
+  documents: DocumentsInstance<T>
+  keyvalue: KeyValueInstance<T>
+  'keyvalue-indexed': KeyValueIndexedInstance<T>
+}
 
-const databaseTypes: Record<string, DatabaseType> = {}
+const databaseTypes: Record<string, ReturnType<DatabaseType>> = {}
 
 const useDatabaseType = (database: DatabaseType) => {
   if (!database.type) {
     throw new Error("Database type does not contain required field 'type'.")
   }
 
-  databaseTypes[database.type] = database
+  databaseTypes[database.type] = database()
 }
 
 const getDatabaseType = (type: string) => {
