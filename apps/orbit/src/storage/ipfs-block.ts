@@ -1,3 +1,4 @@
+/* eslint-disable unused-imports/no-unused-vars */
 import drain from 'it-drain'
 import { base58btc } from 'multiformats/bases/base58'
 import { CID } from 'multiformats/cid'
@@ -12,43 +13,61 @@ export interface IPFSBlockStorageOptions {
   pin?: boolean
   timeout?: number
 }
-export interface IPFSBlockStorageInstance<T> extends StorageInstance<T> {}
 
-export const IPFSBlockStorage = async <T = unknown>({
-  ipfs,
-  pin,
-  timeout = STORAGE_IPFS_BLOCKSTORAGE_TIMEOUT,
-}: IPFSBlockStorageOptions): Promise<IPFSBlockStorageInstance<T>> => {
-  if (!ipfs) {
-    throw new Error('An instance of ipfs is required.')
+export class IPFSBlockStorage<T = unknown> implements StorageInstance<T> {
+  private ipfs: any
+  private pin: boolean
+  private timeout: number
+
+  constructor(options: IPFSBlockStorageOptions) {
+    if (!options.ipfs) {
+      throw new Error('An instance of ipfs is required.')
+    }
+    this.ipfs = options.ipfs
+    this.pin = options.pin || false
+    this.timeout = options.timeout || STORAGE_IPFS_BLOCKSTORAGE_TIMEOUT
   }
 
-  const instance: IPFSBlockStorageInstance<T> = {
-    put: async (hash: string, data: any) => {
-      const cid = CID.parse(hash, base58btc)
-      const { signal } = new TimeoutController(timeout)
-
-      await ipfs.blockstore.put(cid, data, { signal })
-      if (pin && !(await ipfs.pins.isPinned(cid))) {
-        drain(ipfs.pins.add(cid))
-      }
-    },
-    del: async () => {},
-    get: async (hash: string) => {
-      const cid = CID.parse(hash, base58btc)
-      const { signal } = new TimeoutController(
-        timeout || STORAGE_IPFS_BLOCKSTORAGE_TIMEOUT,
-      )
-      const block = await ipfs.blockstore.get(cid, { signal })
-      if (block) {
-        return block
-      }
-    },
-    async *iterator() {},
-    merge: async () => {},
-    clear: async () => {},
-    close: async () => {},
+  static async create<T = unknown>(
+    options: IPFSBlockStorageOptions,
+  ): Promise<IPFSBlockStorage<T>> {
+    return new IPFSBlockStorage<T>(options)
   }
 
-  return instance
+  async put(hash: string, data: any): Promise<void> {
+    const cid = CID.parse(hash, base58btc)
+    const { signal } = new TimeoutController(this.timeout)
+
+    await this.ipfs.blockstore.put(cid, data, { signal })
+    if (this.pin && !(await this.ipfs.pins.isPinned(cid))) {
+      drain(this.ipfs.pins.add(cid))
+    }
+  }
+
+  async del(hash: string): Promise<void> {
+    // No-op for IPFS Block Storage
+  }
+
+  async get(hash: string): Promise<T | null> {
+    const cid = CID.parse(hash, base58btc)
+    const { signal } = new TimeoutController(this.timeout)
+    const block = await this.ipfs.blockstore.get(cid, { signal })
+    return block || null
+  }
+
+  async *iterator(): AsyncIterableIterator<[string, T]> {
+    // No-op for IPFS Block Storage
+  }
+
+  async merge(): Promise<void> {
+    // No-op for IPFS Block Storage
+  }
+
+  async clear(): Promise<void> {
+    // No-op for IPFS Block Storage
+  }
+
+  async close(): Promise<void> {
+    // No-op for IPFS Block Storage
+  }
 }

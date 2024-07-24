@@ -2,99 +2,95 @@ import { MemoryStorage, type StorageInstance } from '../storage'
 
 import { Entry, type EntryInstance } from './entry'
 
-export const Heads = async <T>({
-  storage,
-  heads,
-}: {
+export interface HeadsOptions<T> {
   storage?: StorageInstance<Uint8Array>
   heads?: EntryInstance<T>[]
-}) => {
-  const storage_: StorageInstance<Uint8Array> =
-    storage || (await MemoryStorage<Uint8Array>())
+}
 
-  const put = async (heads: EntryInstance<T>[]) => {
-    const heads_ = findHeads<T>(heads)
-    for (const head of heads_) {
-      await storage_.put(head.hash!, head.bytes!)
+export class Heads<T> {
+  private storage: StorageInstance<Uint8Array>
+
+  constructor({ storage, heads }: HeadsOptions<T> = {}) {
+    this.storage = storage || new MemoryStorage<Uint8Array>()
+    if (heads) {
+      this.put(heads).catch(console.error)
     }
   }
 
-  const set = async (heads: EntryInstance<T>[]) => {
-    await storage_.clear()
-    await put(heads)
+  async put(heads: EntryInstance<T>[]): Promise<void> {
+    const heads_ = Heads.findHeads(heads)
+    for (const head of heads_) {
+      await this.storage.put(head.hash!, head.bytes!)
+    }
   }
 
-  const add = async (head: EntryInstance<T>) => {
-    const currentHeads = await all()
+  async set(heads: EntryInstance<T>[]): Promise<void> {
+    await this.storage.clear()
+    await this.put(heads)
+  }
+
+  async add(head: EntryInstance<T>): Promise<EntryInstance<T>[] | undefined> {
+    const currentHeads = await this.all()
     if (currentHeads.some((e) => Entry.isEqual(e, head))) {
       return
     }
-    const newHeads = findHeads<T>([...currentHeads, head])
-    await set(newHeads)
-
+    const newHeads = Heads.findHeads([...currentHeads, head])
+    await this.set(newHeads)
     return newHeads
   }
 
-  const remove = async (hash: string) => {
-    const currentHeads = await all()
+  async remove(hash: string): Promise<void> {
+    const currentHeads = await this.all()
     const newHeads = currentHeads.filter((e) => e.hash !== hash)
-    await set(newHeads)
+    await this.set(newHeads)
   }
 
-  const iterator = async function* () {
-    const it = storage_.iterator()
+  async *iterator(): AsyncGenerator<EntryInstance<T>> {
+    const it = this.storage.iterator()
     for await (const [, bytes] of it) {
       const head = await Entry.decode<T>(bytes)
       yield head
     }
   }
 
-  const all = async () => {
+  async all(): Promise<EntryInstance<T>[]> {
     const values: EntryInstance<T>[] = []
-    for await (const head of iterator()) {
+    for await (const head of this.iterator()) {
       values.push(head)
     }
     return values
   }
 
-  const clear = async () => {
-    await storage_.clear()
+  async clear(): Promise<void> {
+    await this.storage.clear()
   }
 
-  const close = async () => {
-    await storage_.close()
+  async close(): Promise<void> {
+    await this.storage.close()
   }
 
-  // Initialize the heads if given as parameter
-  await put(heads || [])
+  static findHeads<T>(entries: EntryInstance<T>[]): EntryInstance<T>[] {
+    const entries_ = new Set(entries)
+    const items: Record<string, string> = {}
+    for (const entry of entries_) {
+      for (const next of entry.next!) {
+        items[next!] = entry.hash!
+      }
+    }
 
-  return {
-    put,
-    set,
-    add,
-    remove,
-    iterator,
-    all,
-    clear,
-    close,
+    const res: EntryInstance<T>[] = []
+    for (const entry of entries) {
+      if (!items[entry.hash!]) {
+        res.push(entry)
+      }
+    }
+
+    return res
   }
 }
 
-const findHeads = <T>(entries: EntryInstance<T>[]) => {
-  const entries_ = new Set(entries)
-  const items: Record<string, string> = {}
-  for (const entry of entries_) {
-    for (const next of entry.next!) {
-      items[next!] = entry.hash!
-    }
-  }
-
-  const res: EntryInstance<T>[] = []
-  for (const entry of entries) {
-    if (!items[entry.hash!]) {
-      res.push(entry)
-    }
-  }
-
-  return res
+export const createHeads = async <T>(
+  options: HeadsOptions<T> = {},
+): Promise<Heads<T>> => {
+  return new Heads<T>(options)
 }

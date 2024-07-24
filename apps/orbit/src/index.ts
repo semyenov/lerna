@@ -13,7 +13,6 @@ export {
   useDatabaseType,
 } from './databases'
 
-export { isValidAddress, parseAddress } from './address.js'
 export { Log, Entry } from './oplog'
 export { Database } from './database.js'
 export { KeyStore } from './key-store.js'

@@ -8,50 +8,62 @@ export interface LevelStorageOptions {
   path?: string
   valueEncoding?: string
 }
-export interface LevelStorageInstance<T> extends StorageInstance<T> {}
 
-export const LevelStorage = async <T = unknown>({
-  path = STORAGE_LEVEL_PATH,
-  valueEncoding = STORAGE_LEVEL_VALUE_ENCODING,
-}: LevelStorageOptions): Promise<LevelStorageInstance<T>> => {
-  const level = new Level<string, T>(path, {
-    valueEncoding,
-    createIfMissing: true,
-  })
-  await level.open()
+export class LevelStorage<T = unknown> implements StorageInstance<T> {
+  private level: Level<string, T>
 
-  const instance: LevelStorageInstance<T> = {
-    put: async (hash: string, value: T) => {
-      await level.put(hash, value)
-    },
-    del: async (hash: string) => {
-      await level.del(hash)
-    },
-    get: async (hash: string) => {
-      try {
-        const value = await level.get(hash)
-        if (value) {
-          return value
-        }
-      } catch {
-        return null
-      }
-
-      return null
-    },
-    async *iterator(options: LevelIteratorOptions<string, T> = {}) {
-      for await (const [key, value] of level.iterator(options)) {
-        yield [key, value] as [string, T]
-      }
-    },
-    merge: async () => {},
-    clear: async () => {
-      await level.clear()
-    },
-    close: async () => {
-      await level.close()
-    },
+  constructor(
+    private path: string = STORAGE_LEVEL_PATH,
+    private valueEncoding: string = STORAGE_LEVEL_VALUE_ENCODING,
+  ) {
+    this.level = new Level<string, T>(this.path, {
+      valueEncoding: this.valueEncoding,
+      createIfMissing: true,
+    })
   }
 
-  return instance
+  static async create<T = unknown>(
+    options: LevelStorageOptions = {},
+  ): Promise<LevelStorage<T>> {
+    const storage = new LevelStorage<T>(options.path, options.valueEncoding)
+    await storage.level.open()
+    return storage
+  }
+
+  async put(hash: string, value: T): Promise<void> {
+    await this.level.put(hash, value)
+  }
+
+  async del(hash: string): Promise<void> {
+    await this.level.del(hash)
+  }
+
+  async get(hash: string): Promise<T | null> {
+    try {
+      const value = await this.level.get(hash)
+      return value || null
+    } catch {
+      return null
+    }
+  }
+
+  async *iterator(
+    options: LevelIteratorOptions<string, T> = {},
+  ): AsyncIterableIterator<[string, T]> {
+    for await (const [key, value] of this.level.iterator(options)) {
+      yield [key, value] as [string, T]
+    }
+  }
+
+  async merge(): Promise<void> {
+    // No-op for LevelStorage
+  }
+
+  async clear(): Promise<void> {
+    await this.level.clear()
+  }
+
+  async close(): Promise<void> {
+    await this.level.close()
+  }
 }

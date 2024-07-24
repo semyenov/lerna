@@ -22,7 +22,9 @@ export interface DatabaseOperation<T> {
 
 export type DatabaseType<K extends string = string> = {
   type: K
-  (): <T = unknown>(options: DatabaseOptions<T>) => Promise<DatabaseInstance<T>>
+  create: <T = unknown>(
+    options: DatabaseOptions<T>,
+  ) => Promise<DatabaseInstance<T>>
 }
 export type DatabaseTypeMap<T = unknown> = {
   events: EventsInstance<T>

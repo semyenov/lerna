@@ -1,11 +1,4 @@
-/**
- * @namespace Storage-LRU
- * @memberof module:Storage
- * @description
- * LRUStorage stores data in a Least Recently Used (LRU) cache.
- */
-
-// @ts-ignore
+// @ts-ignore: lru is not typed
 import LRU from 'lru'
 
 import { STORAGE_LRU_SIZE } from '../constants'
@@ -15,41 +8,54 @@ import type { StorageInstance } from './types'
 export interface LRUStorageOptions {
   size?: number
 }
-export interface LRUStorageInstance<T> extends StorageInstance<T> {}
 
-export const LRUStorage = async <T>({
-  size = STORAGE_LRU_SIZE,
-}: LRUStorageOptions): Promise<LRUStorageInstance<T>> => {
-  let lru = new LRU<T>(size)
+export class LRUStorage<T> implements StorageInstance<T> {
+  private lru: LRU<T>
+  private size: number
 
-  const storage: LRUStorageInstance<T> = {
-    put: async (hash: string, data: T) => {
-      lru.set(hash, data)
-    },
-    del: async (hash) => {
-      lru.remove(hash)
-    },
-    get: async (hash) => {
-      return lru.get(hash) || null
-    },
-    async *iterator() {
-      for await (const key of lru.keys) {
-        const value = lru.get(key)
-        yield [key, value] as [string, T]
-      }
-    },
-    merge: async (other) => {
-      if (other) {
-        for await (const [key, value] of other.iterator()) {
-          lru.set(key, value)
-        }
-      }
-    },
-    clear: async () => {
-      lru = new LRU(size || STORAGE_LRU_SIZE)
-    },
-    close: async () => {},
+  constructor({ size = STORAGE_LRU_SIZE }: LRUStorageOptions = {}) {
+    this.size = size
+    this.lru = new LRU<T>(this.size)
   }
 
-  return storage
+  async put(hash: string, data: T): Promise<void> {
+    this.lru.set(hash, data)
+  }
+
+  async del(hash: string): Promise<void> {
+    this.lru.remove(hash)
+  }
+
+  async get(hash: string): Promise<T | null> {
+    return this.lru.get(hash) || null
+  }
+
+  async *iterator(): AsyncIterableIterator<[string, T]> {
+    for (const key of this.lru.keys) {
+      const value = this.lru.get(key)
+      yield [key, value] as [string, T]
+    }
+  }
+
+  async merge(other: StorageInstance<T>): Promise<void> {
+    if (other) {
+      for await (const [key, value] of other.iterator()) {
+        this.lru.set(key, value)
+      }
+    }
+  }
+
+  async clear(): Promise<void> {
+    this.lru = new LRU(this.size)
+  }
+
+  async close(): Promise<void> {
+    // No-op for LRU storage
+  }
+
+  static async create<T>(
+    options: LRUStorageOptions = {},
+  ): Promise<LRUStorage<T>> {
+    return new LRUStorage<T>(options)
+  }
 }

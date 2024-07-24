@@ -1,167 +1,184 @@
-/* eslint-disable no-unused-vars */
-import { EventEmitter } from 'node:events'
-
+import {
+  type EventHandler,
+  type Message,
+  type SignedMessage,
+  type StreamHandler,
+  type SubscriptionChangeData,
+  TypedEventEmitter,
+} from '@libp2p/interface'
 import { PeerSet } from '@libp2p/peer-collections'
 import { pipe } from 'it-pipe'
 import PQueue from 'p-queue'
 import { TimeoutController } from 'timeout-abort-controller'
 
 import { SYNC_PROTOCOL, SYNC_TIMEOUT } from './constants'
+import { Entry, type EntryInstance } from './oplog/entry.js'
 import { join } from './utils'
 
-import type { EntryInstance } from './oplog/entry.js'
 import type { LogInstance } from './oplog/log'
 import type { HeliaInstance, PeerId } from './vendor'
-import type {
-  EventHandler,
-  Message,
-  SignedMessage,
-  StreamHandler,
-  SubscriptionChangeData,
-} from '@libp2p/interface'
 import type { Sink, Source } from 'it-stream-types'
 import type { Uint8ArrayList } from 'uint8arraylist'
 
-export interface SyncEvents<T> extends EventEmitter {
-  on: ((
-    event: 'join',
-    listener: (peerId: string, heads: EntryInstance<T>[]) => void,
-  ) => this) &
-    ((event: 'leave', listener: (peerId: string) => void) => this) &
-    ((event: 'error', listener: (error: Error) => void) => this)
+interface SyncEvents<T> {
+  join: CustomEvent<{ peerId: PeerId; heads: EntryInstance<T>[] }>
+  leave: CustomEvent<{ peerId: PeerId }>
+  error: ErrorEvent
 }
 
-export interface SyncOptions<T> {
+interface SyncOptions<T> {
   ipfs: HeliaInstance
   log: LogInstance<T>
-  events?: SyncEvents<T>
+  events?: TypedEventEmitter<SyncEvents<T>>
   start?: boolean
   timestamp?: number
   timeout?: number
-
   onSynced?: (peerId: PeerId, heads: EntryInstance<T>[]) => Promise<void>
 }
 
-export interface SyncInstance<T> {
-  events: SyncEvents<T>
+interface SyncInstance<T, E extends SyncEvents<T>> {
   peers: PeerSet
-
+  events: TypedEventEmitter<E>
   start: () => Promise<void>
   stop: () => Promise<void>
   add: (entry: EntryInstance<T>) => Promise<void>
 }
 
-export const Sync = async <T>({
-  ipfs,
-  log,
-  onSynced,
-  start = true,
-  timeout = SYNC_TIMEOUT,
-  events = new EventEmitter() as SyncEvents<T>,
-}: SyncOptions<T>): Promise<SyncInstance<T>> => {
-  if (!ipfs) {
-    throw new Error('An instance of ipfs is required.')
-  }
-  if (!log) {
-    throw new Error('An instance of log is required.')
-  }
+class Sync<T, E extends SyncEvents<T> = SyncEvents<T>>
+  implements SyncInstance<T, E>
+{
+  private ipfs: HeliaInstance
+  private log: LogInstance<T>
+  private onSynced?: (
+    peerId: PeerId,
+    heads: EntryInstance<T>[],
+  ) => Promise<void>
+  private timeout: number
+  private queue: PQueue
+  private started: boolean
+  private address: string
+  private headsSyncAddress: string
 
-  const libp2p = ipfs.libp2p
-  const pubsub = ipfs.libp2p.services.pubsub
+  public events: TypedEventEmitter<E>
+  public peers: PeerSet
 
-  const address = log.id
-  const headsSyncAddress = join(SYNC_PROTOCOL, address)
+  constructor(options: SyncOptions<T>) {
+    this.ipfs = options.ipfs
+    this.log = options.log
+    this.onSynced = options.onSynced
+    this.timeout = options.timeout || SYNC_TIMEOUT
+    this.events = options.events || new TypedEventEmitter<E>()
+    this.peers = new PeerSet()
+    this.queue = new PQueue({ concurrency: 1 })
+    this.started = false
+    this.address = this.log.id
+    this.headsSyncAddress = join(SYNC_PROTOCOL, this.address)
 
-  const queue = new PQueue({ concurrency: 1 })
-  const peers: PeerSet = new PeerSet()
-
-  let started = false
-
-  const onPeerJoined = async (peerId: PeerId) => {
-    const heads = await log.heads()
-    events.emit('join', peerId, heads)
-  }
-
-  const sendHeads = (): Source<Uint8Array> => {
-    return (async function* () {
-      const heads = await log.heads()
-      for await (const { bytes } of heads) {
-        yield bytes!
-      }
-    })()
+    if (options.start !== false) {
+      this.start().catch((error) =>
+        this.events.dispatchEvent(new ErrorEvent('error', { error })),
+      )
+    }
   }
 
-  const receiveHeads =
-    (peerId: PeerId): Sink<AsyncIterable<Uint8ArrayList>, void> =>
-    async (source) => {
+  private async onPeerJoined(peerId: PeerId): Promise<void> {
+    const heads = await this.log.heads()
+    this.events.dispatchEvent(
+      new CustomEvent('join', { detail: { peerId, heads } }),
+    )
+  }
+
+  private async *headsIterator(): AsyncGenerator<Uint8Array> {
+    const heads = await this.log.heads()
+    for await (const { bytes } of heads) {
+      yield bytes!
+    }
+  }
+
+  private sendHeads(): Source<Uint8Array> {
+    return this.headsIterator()
+  }
+
+  private receiveHeads(
+    peerId: PeerId,
+  ): Sink<AsyncIterable<Uint8ArrayList>, void> {
+    return async (source) => {
       for await (const value of source) {
         const headBytes = value.subarray()
-        if (headBytes && onSynced) {
-          await onSynced(peerId, [headBytes as unknown as EntryInstance<T>])
+        if (headBytes && this.onSynced) {
+          await this.onSynced(peerId, [
+            headBytes as unknown as EntryInstance<T>,
+          ])
         }
       }
-      if (started) {
-        await onPeerJoined(peerId)
+      if (this.started) {
+        await this.onPeerJoined(peerId)
       }
-    }
-
-  const handleReceiveHeads: StreamHandler = async ({ connection, stream }) => {
-    const peerId = connection.remotePeer
-    try {
-      peers.add(peerId)
-      await pipe(stream, receiveHeads(peerId), sendHeads, stream)
-    } catch (error) {
-      peers.delete(peerId)
-      events.emit('error', error)
     }
   }
 
-  const handlePeerSubscribed: EventHandler<
+  private handleReceiveHeads: StreamHandler = async ({
+    connection,
+    stream,
+  }) => {
+    const peerId = connection.remotePeer
+    try {
+      this.peers.add(peerId)
+      await pipe(stream, this.receiveHeads(peerId), this.sendHeads, stream)
+    } catch (error) {
+      this.peers.delete(peerId)
+      this.events.dispatchEvent(new ErrorEvent('error', { error }))
+    }
+  }
+
+  private handlePeerSubscribed: EventHandler<
     CustomEvent<SubscriptionChangeData>
   > = async (event) => {
     const task = async () => {
       const { peerId: remotePeer, subscriptions } = event.detail
       const peerId = remotePeer
-      const subscription = subscriptions.find((e: any) => e.topic === address)
+      const subscription = subscriptions.find(
+        (e: any) => e.topic === this.address,
+      )
       if (!subscription) {
         return
       }
+
       if (subscription.subscribe) {
-        if (peers.has(peerId)) {
+        if (this.peers.has(peerId)) {
           return
         }
-        const timeoutController = new TimeoutController(timeout)
+
+        const timeoutController = new TimeoutController(this.timeout)
         const { signal } = timeoutController
         try {
-          peers.add(peerId)
-          const stream = await libp2p.dialProtocol(
+          this.peers.add(peerId)
+          const stream = await this.ipfs.libp2p.dialProtocol(
             remotePeer,
-            headsSyncAddress,
+            this.headsSyncAddress,
             { signal },
           )
-          await pipe(sendHeads, stream, receiveHeads(peerId))
+          pipe(this.sendHeads, stream, this.receiveHeads(peerId))
         } catch (error: any) {
           console.error(error)
-          peers.delete(peerId)
-          if (error.code === 'ERR_UNSUPPORTED_PROTOCOL') {
-            // Skip peer, they don't have this database currently
-          } else {
-            events.emit('error', error)
+          this.peers.delete(peerId)
+          if (error.code !== 'ERR_UNSUPPORTED_PROTOCOL') {
+            this.events.dispatchEvent(new ErrorEvent('error', { error }))
           }
         } finally {
-          if (timeoutController) {
-            timeoutController.clear()
-          }
+          timeoutController.clear()
         }
       } else {
-        peers.delete(peerId)
-        events.emit('leave', peerId)
+        this.peers.delete(peerId)
+        this.events.dispatchEvent(
+          new CustomEvent('leave', { detail: { peerId } }),
+        )
       }
     }
-    queue.add(task)
+    this.queue.add(task)
   }
 
-  const handleUpdateMessage: EventHandler<CustomEvent<Message>> = async (
+  private handleUpdateMessage: EventHandler<CustomEvent<Message>> = async (
     message,
   ) => {
     const { topic, data } = message.detail
@@ -169,71 +186,67 @@ export const Sync = async <T>({
     const task = async () => {
       try {
         const detail = message.detail as SignedMessage
-        if (detail.from && data && onSynced) {
-          await onSynced(detail.from as PeerId, [await Entry.decode(data)])
+        if (detail.from && data && this.onSynced) {
+          await this.onSynced(detail.from as PeerId, [await Entry.decode(data)])
         }
       } catch (error) {
         console.error('error', error)
-        events.emit('error', error)
+        this.events.dispatchEvent(new ErrorEvent('error', { error }))
       }
     }
 
-    if (topic === address) {
-      queue.add(task)
+    if (topic === this.address) {
+      this.queue.add(task)
     }
   }
 
-  // Start Sync automatically
-  if (start !== false) {
-    await (async () => {
-      if (!started) {
-        // Exchange head entries with peers when connected
-        await libp2p.handle(headsSyncAddress, handleReceiveHeads)
-        pubsub.addEventListener('subscription-change', handlePeerSubscribed)
-        pubsub.addEventListener('message', handleUpdateMessage)
+  public async start(): Promise<void> {
+    if (!this.started) {
+      await this.ipfs.libp2p.handle(
+        this.headsSyncAddress,
+        this.handleReceiveHeads,
+      )
+      this.ipfs.libp2p.services.pubsub.addEventListener(
+        'subscription-change',
+        this.handlePeerSubscribed,
+      )
+      this.ipfs.libp2p.services.pubsub.addEventListener(
+        'message',
+        this.handleUpdateMessage,
+      )
+      await Promise.resolve(
+        this.ipfs.libp2p.services.pubsub.subscribe(this.address),
+      )
 
-        // Subscribe to the pubsub channel for this database through which updates are sent
-        await Promise.resolve(pubsub.subscribe(address))
-
-        started = true
-      }
-    })()
+      this.started = true
+    }
   }
 
-  const instance: SyncInstance<T> = {
-    add: async (entry: EntryInstance<T>) => {
-      if (started) {
-        await pubsub.publish(address, entry.bytes!)
-      }
-    },
-    stop: async () => {
-      if (started) {
-        started = false
-        await queue.onIdle()
-        pubsub.removeEventListener('subscription-change', handlePeerSubscribed)
-        pubsub.removeEventListener('message', handleUpdateMessage)
-        await libp2p.unhandle(headsSyncAddress)
-        await Promise.resolve(pubsub.unsubscribe(address))
-        peers.clear()
-      }
-    },
-    start: async () => {
-      if (!started) {
-        // Exchange head entries with peers when connected
-        await libp2p.handle(headsSyncAddress, handleReceiveHeads)
-        pubsub.addEventListener('subscription-change', handlePeerSubscribed)
-        pubsub.addEventListener('message', handleUpdateMessage)
-
-        // Subscribe to the pubsub channel for this database through which updates are sent
-        await Promise.resolve(pubsub.subscribe(address))
-
-        started = true
-      }
-    },
-
-    events,
-    peers,
+  public async stop(): Promise<void> {
+    if (this.started) {
+      this.started = false
+      await this.queue.onIdle()
+      this.ipfs.libp2p.services.pubsub.removeEventListener(
+        'subscription-change',
+        this.handlePeerSubscribed,
+      )
+      this.ipfs.libp2p.services.pubsub.removeEventListener(
+        'message',
+        this.handleUpdateMessage,
+      )
+      await this.ipfs.libp2p.unhandle(this.headsSyncAddress)
+      await Promise.resolve(
+        this.ipfs.libp2p.services.pubsub.unsubscribe(this.address),
+      )
+      this.peers.clear()
+    }
   }
 
-  return instance
+  public async add(entry: EntryInstance<T>): Promise<void> {
+    if (this.started) {
+      await this.ipfs.libp2p.services.pubsub.publish(this.address, entry.bytes!)
+    }
+  }
 }
+
+export { Sync, SyncEvents, SyncOptions, SyncInstance }

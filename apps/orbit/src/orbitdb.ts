@@ -6,7 +6,7 @@ import {
   getAccessController,
 } from './access-controllers/index.js'
 import { IPFSAccessController } from './access-controllers/ipfs.js'
-import { OrbitDBAddress, isValidAddress } from './address.js'
+import { OrbitDBAddress } from './address.js'
 import { DATABASE_DEFAULT_TYPE } from './constants.js'
 import {
   type DatabaseType,
@@ -142,8 +142,8 @@ export const OrbitDB = async ({
       return databases[address_!] as DatabaseTypeMap<T>[D]
     }
 
-    if (isValidAddress(address_)) {
-      const addr = OrbitDBAddress(address_)
+    if (OrbitDBAddress.isValidAddress(address_)) {
+      const addr = new OrbitDBAddress(address_)
       manifest = await manifestStore.get(addr.hash)
       if (!manifest) {
         throw new Error(`Manifest not found for address: ${address_}`)
@@ -193,9 +193,9 @@ export const OrbitDB = async ({
       manifest = m.manifest
       address_ = m.hash
 
-      name = manifest.name
+      name = manifest?.name || 'unknown'
 
-      meta_ = meta_ || manifest.meta
+      meta_ = meta_ || manifest?.meta
       if (databases[address_!]) {
         return databases[address_!] as DatabaseTypeMap<T>[D]
       }

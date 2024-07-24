@@ -1,4 +1,3 @@
-/* eslint-disable no-unused-vars */
 import { DATABASE_DOCUMENTS_TYPE } from '../constants.js'
 import {
   Database,
@@ -6,7 +5,11 @@ import {
   type DatabaseOptions,
 } from '../database.js'
 
+import type { DatabaseOperation } from '.'
 import type { DatabaseType } from './index.js'
+import type { LogInstance } from '../oplog/log.js'
+import type { SyncEvents, SyncInstance } from '../sync.js'
+import type { PeerSet } from '@libp2p/peer-collections'
 
 export interface DocumentsDoc<T = unknown> {
   key?: string
@@ -24,6 +27,7 @@ export interface DocumentsOptions {
 
 export interface DocumentsInstance<T = unknown> extends DatabaseInstance<T> {
   type: 'documents'
+  indexBy: string
 
   all: () => Promise<DocumentsDoc<T>[]>
   del: (key: string) => Promise<string>
@@ -35,193 +39,150 @@ export interface DocumentsInstance<T = unknown> extends DatabaseInstance<T> {
   query: (findFn: (doc: T) => boolean) => Promise<T[]>
 }
 
-/**
- * Defines a Documents database.
- * @param {DocumentsOptions<T>} options Various options for configuring the Document store.
- * @param {string} [options.indexBy=_id] An index.
- * @return {DatabaseType<'documents'>} A Documents function.
- * @memberof module:Databases
- */
-export const Documents: DatabaseType<'documents'> = () => {
-  return async <T = unknown>({
-    ipfs,
-    identity,
-    address,
-    name,
-    directory,
-    meta,
-    headsStorage,
-    entryStorage,
-    indexStorage,
-    accessController,
-    referencesCount,
-    syncAutomatically,
-    onUpdate,
-    indexBy = '_id',
-  }: DatabaseOptions<T> & DocumentsOptions): Promise<DocumentsInstance<T>> => {
-    const database = await Database<T>({
-      ipfs,
-      identity,
-      address,
-      name,
-      accessController,
-      directory,
-      meta,
-      headsStorage,
-      entryStorage,
-      indexStorage,
-      referencesCount,
-      syncAutomatically,
-      onUpdate,
+export class DocumentsDatabase<T = unknown> implements DocumentsInstance<T> {
+  private database: DatabaseInstance<T>
+  public indexBy: string
+
+  private constructor(options: DatabaseOptions<T> & DocumentsOptions) {
+    this.database = new Database<T>(options)
+    this.indexBy = options.indexBy || '_id'
+  }
+
+  static async create<T>(
+    options: DatabaseOptions<T> & DocumentsOptions,
+  ): Promise<DocumentsDatabase<T>> {
+    const instance = new DocumentsDatabase<T>(options)
+    return instance
+  }
+
+  get type(): 'documents' {
+    return DATABASE_DOCUMENTS_TYPE
+  }
+
+  get name(): string | undefined {
+    return this.database.name
+  }
+
+  get address(): string | undefined {
+    return this.database.address
+  }
+
+  get meta(): any {
+    return this.database.meta
+  }
+
+  get events(): DatabaseInstance<T>['events'] {
+    return this.database.events
+  }
+
+  get identity(): DatabaseInstance<T>['identity'] {
+    return this.database.identity
+  }
+
+  get accessController(): DatabaseInstance<T>['accessController'] {
+    return this.database.accessController
+  }
+
+  get peers(): PeerSet {
+    return this.database.peers
+  }
+
+  get log(): LogInstance<DatabaseOperation<T>> {
+    return this.database.log
+  }
+
+  get sync(): SyncInstance<
+    DatabaseOperation<T>,
+    SyncEvents<DatabaseOperation<T>>
+  > {
+    return this.database.sync
+  }
+
+  async addOperation(operation: DatabaseOperation<T>): Promise<string> {
+    return this.database.addOperation(operation)
+  }
+
+  async put(doc: T): Promise<string> {
+    const key = doc[this.indexBy as keyof T]
+    if (!key) {
+      throw new Error(
+        `The provided document doesn't contain field '${String(this.indexBy)}'`,
+      )
+    }
+    return this.database.addOperation({
+      op: 'PUT',
+      key: String(key),
+      value: doc,
     })
+  }
 
-    const { addOperation, log } = database
-
-    /**
-     * Stores a document to the store.
-     * @function
-     * @param {T} doc An object representing a key/value list of fields.
-     * @return {Promise<string>} The hash of the new oplog entry.
-     * @memberof module:Databases.Databases-Documents
-     * @instance
-     */
-    const put = async (doc: T): Promise<string> => {
-      const key = doc[indexBy as keyof T]
-
-      if (!key) {
-        throw new Error(
-          `The provided document doesn't contain field '${String(indexBy)}'`,
-        )
-      }
-
-      return addOperation({ op: 'PUT', key: String(key), value: doc })
+  async del(key: string): Promise<string> {
+    if (!(await this.get(key))) {
+      throw new Error(`No document with key '${key}' in the database`)
     }
+    return this.database.addOperation({ op: 'DEL', key, value: null })
+  }
 
-    /**
-     * Deletes a document from the store.
-     * @function
-     * @param {string} key The key of the doc to delete.
-     * @return {Promise<string>} The hash of the new oplog entry.
-     * @memberof module:Databases.Databases-Documents
-     * @instance
-     */
-    const del = async (key: string): Promise<string> => {
-      if (!(await get(key))) {
-        throw new Error(`No document with key '${key}' in the database`)
-      }
-
-      return addOperation({ op: 'DEL', key, value: null })
-    }
-
-    /**
-     * Gets a document from the store by key.
-     * @function
-     * @param {string} key The key of the doc to get.
-     * @return {Promise<DocumentsDoc<T> | null>} The doc corresponding to key or null.
-     * @memberof module:Databases.Databases-Documents
-     * @instance
-     */
-    const get = async (key: string): Promise<DocumentsDoc<T> | null> => {
-      for await (const doc of iterator()) {
-        if (key === doc.key) {
-          return doc
-        }
-      }
-      return null
-    }
-
-    /**
-     * Queries the document store for documents matching mapper filters.
-     * @function
-     * @param {function(T): boolean} findFn A function for querying for specific
-     * results.
-     *
-     * The findFn function's signature takes the form `function(doc)` where doc
-     * is a document's value property. The function should return true if the
-     * document should be included in the results, false otherwise.
-     * @return {Promise<T[]>} Found documents.
-     * @memberof module:Databases.Databases-Documents
-     * @instance
-     */
-    const query = async (findFn: (doc: T) => boolean): Promise<T[]> => {
-      const results: T[] = []
-
-      for await (const doc of iterator()) {
-        if (findFn(doc.value!)) {
-          results.push(doc.value!)
-        }
-      }
-
-      return results
-    }
-
-    /**
-     * Iterates over documents.
-     * @function
-     * @param {DocumentsIteratorOptions} [options={}] Various options to apply to the iterator.
-     * @param {number} [options.amount] The number of results to fetch.
-     * @yields {DocumentsDoc<T>} The next document as hash/key/value.
-     * @memberof module:Databases.Databases-Documents
-     * @instance
-     */
-    const iterator = async function* ({
-      amount,
-    }: DocumentsIteratorOptions = {}): AsyncGenerator<
-      DocumentsDoc<T>,
-      void,
-      unknown
-    > {
-      const keys: Record<string, boolean> = {}
-      let count = 0
-      for await (const entry of log.iterator()) {
-        const { op, key, value } = entry.payload
-        if (op === 'PUT' && !keys[key!]) {
-          keys[key!] = true
-          count++
-          const hash = entry.hash!
-          yield {
-            hash,
-            key: key!,
-            value: value || null,
-          } satisfies DocumentsDoc<T>
-        } else if (op === 'DEL' && !keys[key!]) {
-          keys[key!] = true
-        }
-        if (amount !== undefined && count >= amount) {
-          break
-        }
+  async get(key: string): Promise<DocumentsDoc<T> | null> {
+    for await (const doc of this.iterator()) {
+      if (key === doc.key) {
+        return doc
       }
     }
+    return null
+  }
 
-    /**
-     * Returns all documents.
-     * @function
-     * @return {Promise<DocumentsDoc<T>[]>} An array of documents as hash/key
-     * value entries.
-     * @memberof module:Databases.Databases-Documents
-     * @instance
-     */
-    const all = async (): Promise<DocumentsDoc<T>[]> => {
-      const values: DocumentsDoc<T>[] = []
-      for await (const entry of iterator()) {
-        values.unshift(entry)
+  async query(findFn: (doc: T) => boolean): Promise<T[]> {
+    const results: T[] = []
+    for await (const doc of this.iterator()) {
+      if (doc.value && findFn(doc.value)) {
+        results.push(doc.value)
       }
-      return values
     }
+    return results
+  }
 
-    return {
-      ...database,
-
-      type: DATABASE_DOCUMENTS_TYPE,
-      put,
-      del,
-      get,
-      iterator,
-      query,
-      indexBy,
-      all,
+  async *iterator({ amount }: DocumentsIteratorOptions = {}): AsyncGenerator<
+    DocumentsDoc<T>,
+    void,
+    unknown
+  > {
+    const keys: Record<string, boolean> = {}
+    let count = 0
+    for await (const entry of this.database.log.iterator()) {
+      const { op, key, value } = entry.payload
+      if (op === 'PUT' && !keys[key!]) {
+        keys[key!] = true
+        count++
+        const hash = entry.hash!
+        yield { hash, key: key!, value: value || null }
+      } else if (op === 'DEL' && !keys[key!]) {
+        keys[key!] = true
+      }
+      if (amount !== undefined && count >= amount) {
+        break
+      }
     }
+  }
+
+  async all(): Promise<DocumentsDoc<T>[]> {
+    const values: DocumentsDoc<T>[] = []
+    for await (const entry of this.iterator()) {
+      values.unshift(entry)
+    }
+    return values
+  }
+
+  close(): Promise<void> {
+    return this.database.close()
+  }
+
+  drop(): Promise<void> {
+    return this.database.drop()
   }
 }
 
-Documents.type = DATABASE_DOCUMENTS_TYPE
+export const Documents: DatabaseType<'documents'> = {
+  create: DocumentsDatabase.create,
+  type: DATABASE_DOCUMENTS_TYPE,
+}

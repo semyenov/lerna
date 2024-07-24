@@ -7,31 +7,22 @@ import { bitswap } from '@helia/block-brokers'
 import { createLogger } from '@regioni/lib/logger'
 import { LevelBlockstore } from 'blockstore-level'
 import { createHelia } from 'helia'
-import { createLibp2p } from 'libp2p'
-import { type GossipSub, gossipsub } from '@chainsafe/libp2p-gossipsub'
-import { noise } from '@chainsafe/libp2p-noise'
-import { yamux } from '@chainsafe/libp2p-yamux'
-import {
-  circuitRelayServer,
-  circuitRelayTransport,
-} from '@libp2p/circuit-relay-v2'
-import { type Identify, identify } from '@libp2p/identify'
-import { mdns } from '@libp2p/mdns'
-import { tcp } from '@libp2p/tcp'
-import { webRTC } from '@libp2p/webrtc'
-import { webSockets } from '@libp2p/websockets'
-import { all } from '@libp2p/websockets/filters'
-import { createLogger } from '@regioni/lib/logger'
+import { type Libp2pOptions, createLibp2p } from 'libp2p'
+
 import { DefaultLibp2pBrowserOptions, DefaultLibp2pOptions } from './config'
+
 import type { ServiceMap } from '@libp2p/interface'
-import type { Libp2pOptions } from 'libp2p'
 
 export type Options<T extends ServiceMap = ServiceMap> = Libp2pOptions<T>
-const logger = createLogger()
-
-let spied: any
 
 const isBrowser = () => typeof window !== 'undefined'
+const logger = createLogger({
+  defaultMeta: {
+    service: 'orbit',
+    label: 'orbit',
+  },
+})
+
 export async function startOrbitDB({
   id,
   identity,

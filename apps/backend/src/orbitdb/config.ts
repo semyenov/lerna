@@ -55,6 +55,10 @@ export const DefaultLibp2pOptions: Options = {
   services: {
     identify: identify(),
     circuitRelay: circuitRelayServer(),
+    test: (component: any) => {
+      console.log(component)
+      return component
+    },
     pubsub: gossipsub({
       allowPublishToZeroTopicPeers: true,
     }),

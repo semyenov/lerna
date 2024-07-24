@@ -1,40 +1,51 @@
 import type { StorageInstance } from './types'
 
 export type MemoryStorageOptions = Record<never, never>
-export interface MemoryStorageInstance<T> extends StorageInstance<T> {}
 
-export const MemoryStorage = async <T = unknown>(): Promise<
-  MemoryStorageInstance<T>
-> => {
-  const memory: Map<string, T> = new Map()
+export class MemoryStorage<T = unknown> implements StorageInstance<T> {
+  private memory: Map<string, T>
 
-  const storage: MemoryStorageInstance<T> = {
-    put: async (hash, data) => {
-      memory.set(hash, data)
-    },
-    del: async (hash) => {
-      memory.delete(hash)
-    },
-    get: async (hash) => {
-      return memory.get(hash) || null
-    },
-    async *iterator() {
-      for await (const [key, value] of memory.entries()) {
-        yield [key, value] as [string, T]
-      }
-    },
-    merge: async (other) => {
-      if (other) {
-        for await (const [key, value] of other.iterator()) {
-          memory.set(key, value)
-        }
-      }
-    },
-    clear: async () => {
-      memory.clear()
-    },
-    close: async () => {},
+  constructor() {
+    this.memory = new Map()
   }
 
-  return storage
+  async put(hash: string, data: T): Promise<void> {
+    this.memory.set(hash, data)
+  }
+
+  async del(hash: string): Promise<void> {
+    this.memory.delete(hash)
+  }
+
+  async get(hash: string): Promise<T | null> {
+    return this.memory.get(hash) || null
+  }
+
+  async *iterator(): AsyncIterableIterator<[string, T]> {
+    for (const [key, value] of this.memory.entries()) {
+      yield [key, value]
+    }
+  }
+
+  async merge(other: StorageInstance<T>): Promise<void> {
+    if (other) {
+      for await (const [key, value] of other.iterator()) {
+        this.memory.set(key, value)
+      }
+    }
+  }
+
+  async clear(): Promise<void> {
+    this.memory.clear()
+  }
+
+  async close(): Promise<void> {
+    // No-op for memory storage
+  }
+}
+
+export const createMemoryStorage = async <T = unknown>(): Promise<
+  MemoryStorage<T>
+> => {
+  return new MemoryStorage<T>()
 }

@@ -1,4 +1,3 @@
-/* eslint-disable no-unused-vars */
 import * as crypto from '@libp2p/crypto'
 import { compare as uint8ArrayCompare } from 'uint8arrays/compare'
 import { fromString as uint8ArrayFromString } from 'uint8arrays/from-string'
@@ -15,107 +14,111 @@ export interface KeyStoreOptions {
   path?: string
 }
 
-export abstract class KeyStoreInstance {
-  abstract createKey: (id: string) => Promise<PrivateKey<'secp256k1'>>
-
-  abstract hasKey: (id: string) => Promise<boolean>
-  abstract addKey: (id: string, key: PrivateKey<'secp256k1'>) => Promise<void>
-  abstract removeKey: (id: string) => Promise<void>
-
-  abstract getKey: (id: string) => Promise<PrivateKey<'secp256k1'> | null>
-  abstract getPublic: (key: PrivateKey<'secp256k1'>) => string
-
-  abstract clear: () => Promise<void>
-  abstract close: () => Promise<void>
+export interface KeyStoreInstance {
+  createKey: (id: string) => Promise<PrivateKey<'secp256k1'>>
+  hasKey: (id: string) => Promise<boolean>
+  addKey: (id: string, key: PrivateKey<'secp256k1'>) => Promise<void>
+  removeKey: (id: string) => Promise<void>
+  getKey: (id: string) => Promise<PrivateKey<'secp256k1'> | null>
+  getPublic: (key: PrivateKey<'secp256k1'>) => string
+  clear: () => Promise<void>
+  close: () => Promise<void>
 }
 
-const VERIFIED_CACHE_STORAGE = LRUStorage<{
-  publicKey: string
-  data: string
-}>({
-  size: 1000,
-})
+export class KeyStore implements KeyStoreInstance {
+  private storage: StorageInstance<Uint8Array>
 
-export const KeyStore = async ({
-  storage,
-  path = KEYSTORE_PATH,
-}: {
-  path: string
-  storage?: StorageInstance<Uint8Array>
-}) => {
-  const storage_: StorageInstance<Uint8Array> =
-    storage ||
-    (await ComposedStorage<Uint8Array>({
-      storage1: await LRUStorage<Uint8Array>({ size: 1000 }),
-      storage2: await LevelStorage<Uint8Array>({ path }),
-    }))
-
-  const instance: KeyStoreInstance = {
-    clear: async () => {
-      await storage_.clear()
-    },
-    close: async () => {
-      await storage_.close()
-    },
-    hasKey: async (id) => {
-      if (!id) {
-        throw new Error('id needed to check a key')
-      }
-
-      let hasKey = false
-      try {
-        const storedKey = await storage_.get(`private_${id}`)
-        hasKey = storedKey !== undefined && storedKey !== null
-      } catch {
-        // Catches 'Error: ENOENT: no such file or directory, open <path>'
-        console.error('Error: ENOENT: no such file or directory')
-      }
-
-      return hasKey
-    },
-    addKey: async (id, key) => {
-      await storage_.put(`private_${id}`, key.marshal())
-    },
-    createKey: async (id) => {
-      if (!id) {
-        throw new Error('id needed to create a key')
-      }
-
-      const keys = await crypto.keys.generateKeyPair('secp256k1')
-      await storage_.put(`private_${id}`, keys.marshal())
-
-      return keys
-    },
-    getKey: async (id) => {
-      if (!id) {
-        throw new Error('id needed to get a key')
-      }
-
-      const storedKey = await storage_.get(`private_${id}`)
-      if (!storedKey) {
-        return Promise.resolve(null)
-      }
-
-      return unmarshal(storedKey)
-    },
-    getPublic: (keys: PrivateKey<'secp256k1'>) => {
-      if (!keys) {
-        throw new Error('keys needed to get a public key')
-      }
-
-      return uint8ArrayToString(keys.public.marshal(), 'base16')
-    },
-    removeKey: async (id) => {
-      if (!id) {
-        throw new Error('id needed to remove a key')
-      }
-
-      await storage_.del(`private_${id}`)
-    },
+  private constructor(storage: StorageInstance<Uint8Array>) {
+    this.storage = storage
   }
 
-  return instance
+  static async create({
+    storage,
+    path = KEYSTORE_PATH,
+  }: KeyStoreOptions): Promise<KeyStore> {
+    const storage_: StorageInstance<Uint8Array> =
+      storage ||
+      new ComposedStorage<Uint8Array>({
+        storage1: new LRUStorage<Uint8Array>({ size: 1000 }),
+        storage2: new LevelStorage<Uint8Array>(path),
+      })
+
+    return new KeyStore(storage_)
+  }
+
+  async clear(): Promise<void> {
+    await this.storage.clear()
+  }
+
+  async close(): Promise<void> {
+    await this.storage.close()
+  }
+
+  async hasKey(id: string): Promise<boolean> {
+    if (!id) {
+      throw new Error('id needed to check a key')
+    }
+
+    let hasKey = false
+    try {
+      const storedKey = await this.storage.get(`private_${id}`)
+      hasKey = storedKey !== undefined && storedKey !== null
+    } catch {
+      console.error('Error: ENOENT: no such file or directory')
+    }
+
+    return hasKey
+  }
+
+  async addKey(id: string, key: PrivateKey<'secp256k1'>): Promise<void> {
+    await this.storage.put(`private_${id}`, key.marshal())
+  }
+
+  async createKey(id: string): Promise<PrivateKey<'secp256k1'>> {
+    if (!id) {
+      throw new Error('id needed to create a key')
+    }
+
+    const keys = await crypto.keys.generateKeyPair('secp256k1')
+    await this.storage.put(`private_${id}`, keys.marshal())
+
+    return keys
+  }
+
+  async getKey(id: string): Promise<PrivateKey<'secp256k1'> | null> {
+    if (!id) {
+      throw new Error('id needed to get a key')
+    }
+
+    const storedKey = await this.storage.get(`private_${id}`)
+    if (!storedKey) {
+      return null
+    }
+
+    return unmarshal(storedKey)
+  }
+
+  getPublic(keys: PrivateKey<'secp256k1'>): string {
+    if (!keys) {
+      throw new Error('keys needed to get a public key')
+    }
+
+    return uint8ArrayToString(keys.public.marshal(), 'base16')
+  }
+
+  async removeKey(id: string): Promise<void> {
+    if (!id) {
+      throw new Error('id needed to remove a key')
+    }
+
+    await this.storage.del(`private_${id}`)
+  }
 }
+
+const VERIFIED_CACHE_STORAGE = new LRUStorage<{
+  publicKey: string
+  data: string
+}>({ size: 1000 })
 
 const unmarshal =
   crypto.keys.supportedKeys.secp256k1.unmarshalSecp256k1PrivateKey
@@ -178,7 +181,7 @@ export async function verifyMessage(
   publicKey: string,
   data: string,
 ): Promise<boolean> {
-  const verifiedCache = await VERIFIED_CACHE_STORAGE
+  const verifiedCache = VERIFIED_CACHE_STORAGE
   const cached = await verifiedCache.get(signature)
   if (!cached) {
     const verified = await verifySignature(signature, publicKey, data)

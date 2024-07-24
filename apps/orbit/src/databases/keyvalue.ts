@@ -1,4 +1,3 @@
-/* eslint-disable no-unused-vars */
 import { DATABASE_KEYVALUE_TYPE } from '../constants'
 import {
   Database,
@@ -12,7 +11,9 @@ import type { IdentityInstance } from '../identities'
 import type { EntryInstance } from '../oplog'
 import type { LogInstance } from '../oplog/log'
 import type { StorageInstance } from '../storage'
+import type { SyncEvents, SyncInstance } from '../sync'
 import type { HeliaInstance } from '../vendor'
+import type { PeerSet } from '@libp2p/peer-collections'
 
 export interface KeyValueDatabaseOptions<T = unknown>
   extends DatabaseOptions<T> {
@@ -24,7 +25,7 @@ export interface KeyValueDatabaseOptions<T = unknown>
   directory: string
   meta: any
   headsStorage?: StorageInstance<Uint8Array>
-  entryStorage?: StorageInstance<EntryInstance<T>>
+  entryStorage?: StorageInstance<Uint8Array>
   indexStorage?: StorageInstance<boolean>
   referencesCount?: number
   syncAutomatically?: boolean
@@ -52,81 +53,134 @@ export interface KeyValueInstance<T> extends DatabaseInstance<T> {
   all: () => Promise<KeyValueEntry<T>[]>
 }
 
-export const KeyValue: DatabaseType<'keyvalue'> =
-  () =>
-  async <T = unknown>(
+export class KeyValueDatabase<T = unknown> implements KeyValueInstance<T> {
+  private database: DatabaseInstance<T>
+
+  constructor(options: KeyValueDatabaseOptions<T>) {
+    this.database = new Database<T>(options)
+  }
+
+  static async create<T>(
     options: KeyValueDatabaseOptions<T>,
-  ): Promise<KeyValueInstance<T>> => {
-    const database = await Database<T>(options)
-    const { addOperation, log } = database
-
-    const put = async (key: string, value: T): Promise<string> => {
-      return addOperation({ op: 'PUT', key, value })
-    }
-
-    const del = async (key: string): Promise<string> => {
-      return addOperation({ op: 'DEL', key, value: null })
-    }
-
-    const get = async (key: string): Promise<T | null> => {
-      for await (const entry of log.traverse()) {
-        const { op, key: k, value } = entry.payload
-        if (op === 'PUT' && k === key) {
-          return value as T
-        } else if (op === 'DEL' && k === key) {
-          return null
-        }
-      }
-
-      return null
-    }
-
-    const iterator = async function* ({
-      amount,
-    }: { amount?: number } = {}): AsyncIterable<KeyValueEntry<T>> {
-      const keys: Record<string, boolean> = {}
-      let count = 0
-      for await (const entry of log.traverse()) {
-        const { op, key, value } = entry.payload
-        if (op === 'PUT' && !keys[key!]) {
-          keys[key!] = true
-          count++
-          const hash = entry.hash!
-          yield {
-            key: key!,
-            value: value || null,
-            hash,
-          } satisfies KeyValueEntry<T>
-        } else if (op === 'DEL' && !keys[key!]) {
-          keys[key!] = true
-        }
-        if (amount !== undefined && count >= amount) {
-          break
-        }
-      }
-    }
-
-    const all = async (): Promise<KeyValueEntry<T>[]> => {
-      const values: KeyValueEntry<T>[] = []
-      for await (const entry of iterator()) {
-        values.unshift(entry)
-      }
-      return values
-    }
-
-    const instance: KeyValueInstance<T> = {
-      ...database,
-
-      type: DATABASE_KEYVALUE_TYPE,
-      put,
-      set: put,
-      del,
-      get,
-      iterator,
-      all,
-    }
-
+  ): Promise<KeyValueDatabase<T>> {
+    const instance = new KeyValueDatabase<T>(options)
     return instance
   }
 
-KeyValue.type = DATABASE_KEYVALUE_TYPE
+  get type(): 'keyvalue' {
+    return DATABASE_KEYVALUE_TYPE
+  }
+
+  get indexBy(): string | undefined {
+    return this.database.indexBy
+  }
+
+  get name(): string | undefined {
+    return this.database.name
+  }
+
+  get address(): string | undefined {
+    return this.database.address
+  }
+
+  get meta(): any {
+    return this.database.meta
+  }
+
+  get events(): DatabaseInstance<T>['events'] {
+    return this.database.events
+  }
+
+  get identity(): IdentityInstance {
+    return this.database.identity
+  }
+
+  get accessController(): AccessControllerInstance {
+    return this.database.accessController
+  }
+
+  get peers(): PeerSet {
+    return this.database.peers
+  }
+
+  get log(): LogInstance<DatabaseOperation<T>> {
+    return this.database.log
+  }
+
+  get sync(): SyncInstance<
+    DatabaseOperation<T>,
+    SyncEvents<DatabaseOperation<T>>
+  > {
+    return this.database.sync
+  }
+
+  async addOperation(operation: DatabaseOperation<T>): Promise<string> {
+    return this.database.addOperation(operation)
+  }
+
+  async put(key: string, value: T): Promise<string> {
+    return this.database.addOperation({ op: 'PUT', key, value })
+  }
+
+  async set(key: string, value: T): Promise<string> {
+    return this.put(key, value)
+  }
+
+  async del(key: string): Promise<string> {
+    return this.database.addOperation({ op: 'DEL', key, value: null })
+  }
+
+  async get(key: string): Promise<T | null> {
+    for await (const entry of this.database.log.traverse()) {
+      const { op, key: k, value } = entry.payload
+      if (op === 'PUT' && k === key) {
+        return value as T
+      } else if (op === 'DEL' && k === key) {
+        return null
+      }
+    }
+    return null
+  }
+
+  async *iterator({ amount }: { amount?: number } = {}): AsyncIterable<
+    KeyValueEntry<T>
+  > {
+    const keys: Record<string, boolean> = {}
+    let count = 0
+    for await (const entry of this.database.log.traverse()) {
+      const { op, key, value } = entry.payload
+      if (op === 'PUT' && !keys[key!]) {
+        keys[key!] = true
+        count++
+        const hash = entry.hash!
+        yield { key: key!, value: value || null, hash }
+      } else if (op === 'DEL' && !keys[key!]) {
+        keys[key!] = true
+      }
+      if (amount !== undefined && count >= amount) {
+        break
+      }
+    }
+  }
+
+  async all(): Promise<KeyValueEntry<T>[]> {
+    const values: KeyValueEntry<T>[] = []
+    for await (const entry of this.iterator()) {
+      values.unshift(entry)
+    }
+    return values
+  }
+
+  close(): Promise<void> {
+    return this.database.close()
+  }
+
+  drop(): Promise<void> {
+    return this.database.drop()
+  }
+}
+
+export const KeyValue: DatabaseType<'keyvalue'> = {
+  create: KeyValueDatabase.create,
+  type: DATABASE_KEYVALUE_TYPE,
+}

@@ -1,43 +1,33 @@
-import type {
-  ComposedStorageInstance,
-  ComposedStorageOptions,
-} from './composed.js'
-import type {
-  IPFSBlockStorageInstance,
-  IPFSBlockStorageOptions,
-} from './ipfs-block.js'
-import type { LevelStorageInstance, LevelStorageOptions } from './level.js'
-import type { LRUStorageInstance, LRUStorageOptions } from './lru.js'
-import type { MemoryStorageInstance, MemoryStorageOptions } from './memory.js'
+import { ComposedStorage, type ComposedStorageOptions } from './composed.js'
+import { IPFSBlockStorage, type IPFSBlockStorageOptions } from './ipfs-block.js'
+import { LevelStorage, type LevelStorageOptions } from './level.js'
+import { LRUStorage, type LRUStorageOptions } from './lru.js'
+import { MemoryStorage, type MemoryStorageOptions } from './memory.js'
+
 import type { StorageInstance } from './types.js'
 
 interface StorageTypeMap<T = unknown> {
-  composed: StorageInstance<T>
-  ipfs: IPFSBlockStorageInstance<T>
-  lru: LRUStorageInstance<T>
-  level: LevelStorageInstance<T>
-  memory: MemoryStorageInstance<T>
+  composed: ComposedStorage<T>
+  ipfs: IPFSBlockStorage<T>
+  lru: LRUStorage<T>
+  level: LevelStorage<T>
+  memory: MemoryStorage<T>
 }
-
 type StorageType = keyof StorageTypeMap
 
-export { ComposedStorage } from './composed.js'
-export { IPFSBlockStorage } from './ipfs-block.js'
-export { LevelStorage } from './level.js'
-export { LRUStorage } from './lru.js'
-export { MemoryStorage } from './memory.js'
-
+export {
+  ComposedStorage,
+  IPFSBlockStorage,
+  LevelStorage,
+  LRUStorage,
+  MemoryStorage,
+}
 export type {
   ComposedStorageOptions,
-  ComposedStorageInstance,
   IPFSBlockStorageOptions,
-  IPFSBlockStorageInstance,
   LevelStorageOptions,
-  LevelStorageInstance,
   LRUStorageOptions,
-  LRUStorageInstance,
   MemoryStorageOptions,
-  MemoryStorageInstance,
   StorageInstance,
   StorageType,
   StorageTypeMap,
