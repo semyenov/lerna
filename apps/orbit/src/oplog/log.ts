@@ -417,27 +417,23 @@ export const Log = async <T>(
     }
   }
 
-  async function* iterator({
-    amount = -1,
-    gt,
-    gte,
-    lt,
-    lte,
-  }: LogIteratorOptions): AsyncGenerator<EntryInstance<T>> {
+  async function* iterator(
+    options: LogIteratorOptions = { amount: -1 },
+  ): AsyncGenerator<EntryInstance<T>> {
     // TODO: write comments on how the iterator algorithm works
     let lte_: (EntryInstance<T> | null)[] | null = null
     let lt_: (EntryInstance<T> | null)[] | null = null
 
-    if (amount === 0) {
+    if (options.amount === 0) {
       return
     }
 
-    if (typeof lte === 'string') {
-      lte_ = [await get(lte!)]
+    if (typeof options.lte === 'string') {
+      lte_ = [await get(options.lte!)]
     }
 
-    if (typeof lt === 'string') {
-      const entry = await get(lt)
+    if (typeof options.lt === 'string') {
+      const entry = await get(options.lt)
       const nexts = await Promise.all((entry?.next ?? []).map((n) => get(n)))
       lt_ = nexts
     }
@@ -452,9 +448,10 @@ export const Log = async <T>(
     const start: EntryInstance<T>[] = (lt_ || lte_ || (await heads())).filter(
       (i) => i !== null,
     )
-    const end = gt || gte ? await get((gt || gte)!) : null
+    const end =
+      options.gt || options.gte ? await get((options.gt || options.gte)!) : null
 
-    const amountToIterate = end || amount === -1 ? -1 : amount
+    const amountToIterate = end || options.amount === -1 ? -1 : options.amount
 
     let count = 0
     const shouldStopTraversal = async (entry: EntryInstance<T>) => {
@@ -462,7 +459,7 @@ export const Log = async <T>(
       if (!entry) {
         return false
       }
-      if (count >= amountToIterate && amountToIterate !== -1) {
+      if (count >= amountToIterate! && amountToIterate !== -1) {
         return true
       }
       if (end && Entry.isEqual(entry, end)) {
@@ -471,15 +468,15 @@ export const Log = async <T>(
       return false
     }
 
-    const useBuffer = end && amount !== -1 && !lt && !lte_
-    const buffer = useBuffer ? new LRU(amount + 2) : null
+    const useBuffer = end && options.amount !== -1 && !options.lt && !lte_
+    const buffer = useBuffer ? new LRU(options.amount || 0 + 2) : null
     let index = 0
 
     const it = traverse(start, shouldStopTraversal)
 
     for await (const entry of it) {
-      const skipFirst = lt && Entry.isEqual(entry, start[0])
-      const skipLast = gt && Entry.isEqual(entry, end!)
+      const skipFirst = options.lt && Entry.isEqual(entry, start[0])
+      const skipLast = options.gt && Entry.isEqual(entry, end!)
       const skip = skipFirst || skipLast
       if (!skip) {
         if (useBuffer) {
@@ -492,7 +489,8 @@ export const Log = async <T>(
 
     if (useBuffer) {
       const endIndex = buffer.keys.length
-      const startIndex = endIndex > amount ? endIndex - amount : 0
+      const startIndex =
+        endIndex > options.amount! ? endIndex - options.amount! : 0
       const keys = buffer.keys.slice(startIndex, endIndex)
       for (const key of keys) {
         const hash = buffer.get(key)
