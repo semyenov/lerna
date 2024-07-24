@@ -1,5 +1,7 @@
 import { Level, type IteratorOptions as LevelIteratorOptions } from 'level'
 
+import { STORAGE_LEVEL_PATH, STORAGE_LEVEL_VALUE_ENCODING } from '../constants'
+
 import type { StorageInstance } from '../storage'
 
 export interface LevelStorageOptions {
@@ -8,12 +10,9 @@ export interface LevelStorageOptions {
 }
 export interface LevelStorageInstance<T> extends StorageInstance<T> {}
 
-const DEFAULT_PATH = './level'
-const DEFAULT_VALUE_ENCODING = 'view'
-
 export const LevelStorage = async <T = unknown>({
-  path = DEFAULT_PATH,
-  valueEncoding = DEFAULT_VALUE_ENCODING,
+  path = STORAGE_LEVEL_PATH,
+  valueEncoding = STORAGE_LEVEL_VALUE_ENCODING,
 }: LevelStorageOptions): Promise<LevelStorageInstance<T>> => {
   const level = new Level<string, T>(path, {
     valueEncoding,
@@ -21,7 +20,7 @@ export const LevelStorage = async <T = unknown>({
   })
   await level.open()
 
-  const storage: LevelStorageInstance<T> = {
+  const instance: LevelStorageInstance<T> = {
     put: async (hash: string, value: T) => {
       await level.put(hash, value)
     },
@@ -54,5 +53,5 @@ export const LevelStorage = async <T = unknown>({
     },
   }
 
-  return storage
+  return instance
 }

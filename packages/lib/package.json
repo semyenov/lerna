@@ -125,8 +125,8 @@
   "devDependencies": {
     "@types/events": "^3.0.3",
     "@types/orbitdb__core": "workspace:^",
-    "pkgroll": "^2.1.1",
-    "typescript": "^5.5.3",
+    "pkgroll": "^2.4.1",
+    "typescript": "^5.5.4",
     "typescript-json-schema": "0.64.0",
     "zod": "^3.23.8"
   }

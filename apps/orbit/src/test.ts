@@ -66,7 +66,7 @@ const options: Libp2pOptions<{
     identify: identify(),
     circuitRelay: circuitRelayServer(),
     pubsub: gossipsub({
-      allowPublishToZeroPeers: true,
+      allowPublishToZeroTopicPeers: true,
     }),
   },
 }

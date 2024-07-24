@@ -1,4 +1,4 @@
-import { KEYVALUE_INDEXED_DATABASE_TYPE } from '../constants.js'
+import { DATABASE_KEYVALUE_INDEXED_TYPE } from '../constants.js'
 import { LevelStorage } from '../storage/level.js'
 import { join } from '../utils'
 
@@ -193,7 +193,7 @@ export const KeyValueIndexed: DatabaseType<'keyvalue-indexed'> = () => {
     return {
       ...keyValueStore,
 
-      type: KEYVALUE_INDEXED_DATABASE_TYPE,
+      type: DATABASE_KEYVALUE_INDEXED_TYPE,
       get,
       iterator,
       close,
@@ -202,4 +202,4 @@ export const KeyValueIndexed: DatabaseType<'keyvalue-indexed'> = () => {
   }
 }
 
-KeyValueIndexed.type = KEYVALUE_INDEXED_DATABASE_TYPE
+KeyValueIndexed.type = DATABASE_KEYVALUE_INDEXED_TYPE

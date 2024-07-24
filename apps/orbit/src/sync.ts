@@ -5,14 +5,20 @@ import { pipe } from 'it-pipe'
 import PQueue from 'p-queue'
 import { TimeoutController } from 'timeout-abort-controller'
 
-import { SYNC_HEADS_PATH, SYNC_TIMEOUT } from './constants'
+import { SYNC_PROTOCOL, SYNC_TIMEOUT } from './constants'
 import { join } from './utils'
 
 import type { EntryInstance } from './oplog/entry.js'
 import type { LogInstance } from './oplog/log'
 import type { HeliaInstance, PeerId } from './vendor'
-import type { StreamHandler } from '@libp2p/interface'
-import type { Sink } from 'it-stream-types'
+import type {
+  EventHandler,
+  Message,
+  SignedMessage,
+  StreamHandler,
+  SubscriptionChangeData,
+} from '@libp2p/interface'
+import type { Sink, Source } from 'it-stream-types'
 import type { Uint8ArrayList } from 'uint8arraylist'
 
 export interface SyncEvents<T> extends EventEmitter {
@@ -47,10 +53,10 @@ export interface SyncInstance<T> {
 export const Sync = async <T>({
   ipfs,
   log,
-  events = new EventEmitter() as SyncEvents<T>,
   onSynced,
-  start,
+  start = true,
   timeout = SYNC_TIMEOUT,
+  events = new EventEmitter() as SyncEvents<T>,
 }: SyncOptions<T>): Promise<SyncInstance<T>> => {
   if (!ipfs) {
     throw new Error('An instance of ipfs is required.')
@@ -63,7 +69,8 @@ export const Sync = async <T>({
   const pubsub = ipfs.libp2p.services.pubsub
 
   const address = log.id
-  const headsSyncAddress = join(SYNC_HEADS_PATH, address)
+  const headsSyncAddress = join(SYNC_PROTOCOL, address)
+
   const queue = new PQueue({ concurrency: 1 })
   const peers: Set<PeerId> = new Set()
 
@@ -74,7 +81,7 @@ export const Sync = async <T>({
     events.emit('join', peerId, heads)
   }
 
-  const sendHeads = (): AsyncIterable<Uint8Array> => {
+  const sendHeads = (): Source<Uint8Array> => {
     return (async function* () {
       const heads = await log.heads()
       for await (const { bytes } of heads) {
@@ -113,7 +120,9 @@ export const Sync = async <T>({
     }
   }
 
-  const handlePeerSubscribed = async (event: any) => {
+  const handlePeerSubscribed: EventHandler<
+    CustomEvent<SubscriptionChangeData>
+  > = async (event) => {
     const task = async () => {
       const { peerId: remotePeer, subscriptions } = event.detail
       const peerId = String(remotePeer)
@@ -160,15 +169,16 @@ export const Sync = async <T>({
     queue.add(task)
   }
 
-  const handleUpdateMessage = async (message: any) => {
+  const handleUpdateMessage: EventHandler<CustomEvent<Message>> = async (
+    message,
+  ) => {
     const { topic, data } = message.detail
 
     const task = async () => {
       try {
-        if (data && onSynced) {
-          await onSynced(message.detail.from as PeerId, [
-            data as unknown as EntryInstance<T>,
-          ])
+        const detail = message.detail as SignedMessage
+        if (detail.from && data && onSynced) {
+          await onSynced(detail.from as PeerId, [await Entry.decode(data)])
         }
       } catch (error) {
         events.emit('error', error)
@@ -188,8 +198,10 @@ export const Sync = async <T>({
         await libp2p.handle(headsSyncAddress, handleReceiveHeads)
         pubsub.addEventListener('subscription-change', handlePeerSubscribed)
         pubsub.addEventListener('message', handleUpdateMessage)
+
         // Subscribe to the pubsub channel for this database through which updates are sent
         await Promise.resolve(pubsub.subscribe(address))
+
         started = true
       }
     })()
@@ -218,8 +230,10 @@ export const Sync = async <T>({
         await libp2p.handle(headsSyncAddress, handleReceiveHeads)
         pubsub.addEventListener('subscription-change', handlePeerSubscribed)
         pubsub.addEventListener('message', handleUpdateMessage)
+
         // Subscribe to the pubsub channel for this database through which updates are sent
         await Promise.resolve(pubsub.subscribe(address))
+
         started = true
       }
     },

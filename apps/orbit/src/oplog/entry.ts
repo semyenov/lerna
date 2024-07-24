@@ -122,7 +122,7 @@ const isEntry = (obj: any): obj is EntryInstance => {
   )
 }
 
-const isEqual = (a: EntryInstance, b: EntryInstance) => {
+const isEqual = <T>(a: EntryInstance<T>, b: EntryInstance<T>) => {
   return a && b && a.hash === b.hash
 }
 

@@ -1,13 +1,13 @@
-/**
- * @module Database
- * @description
- * Database is the base class for OrbitDB data stores and handles all lower
- * level add operations and database sync-ing using IPFS.
- */
-import { EventEmitter } from 'events'
+/* eslint-disable no-unused-vars */
+import { EventEmitter } from 'node:events'
 
 import PQueue from 'p-queue'
 
+import {
+  DATABASE_CACHE_SIZE,
+  DATABASE_PATH as DATABASE_PATH,
+  DATABASE_REFERENCES_COUNT,
+} from './constants.js'
 import { Entry, Log } from './oplog/index.js'
 import {
   ComposedStorage,
@@ -38,12 +38,13 @@ export interface DatabaseOptions<T> {
   syncAutomatically?: boolean
 
   ipfs: HeliaInstance
-  accessController?: AccessControllerInstance
   identity?: IdentityInstance
   identities?: IdentitiesInstance
-  headsStorage?: StorageInstance<any>
-  entryStorage?: StorageInstance<any>
-  indexStorage?: StorageInstance<any>
+  headsStorage?: StorageInstance<Uint8Array>
+  entryStorage?: StorageInstance<Uint8Array>
+  indexStorage?: StorageInstance<boolean>
+  accessController?: AccessControllerInstance
+
   onUpdate?: (
     log: LogInstance<DatabaseOperation<T>>,
     entry: EntryInstance<T> | EntryInstance<DatabaseOperation<T>>,
@@ -82,43 +83,44 @@ export interface DatabaseInstance<T = unknown> {
   drop: () => Promise<void>
 }
 
-const DEFAULT_REFEREMCES_COUNT = 16
-const DEFAULT_CACHE_SIZE = 1000
-
 export const Database = async <T = any>({
   ipfs,
-  identity,
-  address,
-  name,
-  accessController,
-  directory = './orbitdb',
+
   meta = {},
+  name,
+  address,
+
+  directory = DATABASE_PATH,
+  referencesCount = DATABASE_REFERENCES_COUNT,
+
+  identity,
   headsStorage,
   entryStorage,
   indexStorage,
-  referencesCount = DEFAULT_REFEREMCES_COUNT,
-  syncAutomatically,
+  accessController,
   onUpdate,
+  syncAutomatically = true,
 }: DatabaseOptions<T>): Promise<DatabaseInstance<T>> => {
   const path = join(directory, `./${address}/`)
+
   const entryStorage_ =
     entryStorage ||
     (await ComposedStorage({
-      storage1: await LRUStorage({ size: DEFAULT_CACHE_SIZE }),
+      storage1: await LRUStorage({ size: DATABASE_CACHE_SIZE }),
       storage2: await IPFSBlockStorage({ ipfs, pin: true }),
     }))
 
   const headsStorage_ =
     headsStorage ||
     (await ComposedStorage({
-      storage1: await LRUStorage({ size: DEFAULT_CACHE_SIZE }),
+      storage1: await LRUStorage({ size: DATABASE_CACHE_SIZE }),
       storage2: await LevelStorage({ path: join(path, '/log/_heads/') }),
     }))
 
   const indexStorage_ =
     indexStorage ||
     (await ComposedStorage({
-      storage1: await LRUStorage({ size: DEFAULT_CACHE_SIZE }),
+      storage1: await LRUStorage({ size: DATABASE_CACHE_SIZE }),
       storage2: await LevelStorage({ path: join(path, '/log/_index/') }),
     }))
 
@@ -132,23 +134,6 @@ export const Database = async <T = any>({
 
   const events = new EventEmitter()
   const queue = new PQueue({ concurrency: 1 })
-
-  const addOperation = async (op: DatabaseOperation<T>): Promise<string> => {
-    const task = async () => {
-      const entry = await log.append(op, { referencesCount })
-      await sync.add(entry)
-      if (onUpdate) {
-        await onUpdate(log, entry)
-      }
-      events.emit('update', entry)
-      return entry.hash
-    }
-
-    const hash = await queue.add(task)
-    await queue.onIdle()
-
-    return hash as string
-  }
 
   const applyOperation = async (bytes: Uint8Array) => {
     const task = async () => {
@@ -167,103 +152,68 @@ export const Database = async <T = any>({
     await queue.add(task)
   }
 
-  /**
-   * Closes the database, stopping sync and closing the oplog.
-   * @memberof module:Databases~Database
-   * @instance
-   * @async
-   */
-  const close = async () => {
-    await sync.stop()
-    await queue.onIdle()
-    await log.close()
-    if (accessController && accessController.close) {
-      await accessController.close()
-    }
-    events.emit('close')
-  }
-
-  /**
-   * Drops the database, clearing the oplog.
-   * @memberof module:Databases~Database
-   * @instance
-   * @async
-   */
-  const drop = async () => {
-    await queue.onIdle()
-    await log.clear()
-    if (accessController && accessController.drop) {
-      await accessController.drop()
-    }
-    events.emit('drop')
-  }
-
   const sync = await Sync({
     ipfs,
     log,
     events,
+    start: syncAutomatically,
+
+    // TODO: check this
     onSynced: applyOperation as unknown as (
       peerId: PeerId,
       heads: EntryInstance<DatabaseOperation<T>>[],
     ) => Promise<void>,
-    start: syncAutomatically,
   })
 
-  return {
+  const instance: DatabaseInstance<T> = {
     type: 'database',
 
-    /**
-     * The address of the database.
-     * @†ype string
-     * @memberof module:Databases~Database
-     * @instance
-     */
-    address,
-    /**
-     * The name of the database.
-     * @†ype string
-     * @memberof module:Databases~Database
-     * @instance
-     */
-    name,
-    identity: identity!,
     meta,
-    close,
-    drop,
-    addOperation,
-    /**
-     * The underlying [operations log]{@link module:Log~Log} of the database.
-     * @†ype {module:Log~Log}
-     * @memberof module:Databases~Database
-     * @instance
-     */
+    name,
+    address,
+
     log,
-    /**
-     * A [sync]{@link module:Sync~Sync} instance of the database.
-     * @†ype {module:Sync~Sync}
-     * @memberof module:Databases~Database
-     * @instance
-     */
     sync,
-    /**
-     * Set of currently connected peers for this Database instance.
-     * @†ype Set
-     * @memberof module:Databases~Database
-     * @instance
-     */
-    peers: sync.peers,
-    /**
-     * Event emitter that emits Database changes. See Events section for details.
-     * @†ype EventEmitter
-     * @memberof module:Databases~Database
-     * @instance
-     */
     events,
-    /**
-     * The [access controller]{@link module:AccessControllers} instance of the database.
-     * @memberof module:Databases~Database
-     * @instance
-     */
+    peers: sync.peers,
+    identity: identity!,
     accessController: accessController!,
+
+    drop: async () => {
+      await queue.onIdle()
+      await log.clear()
+      if (accessController && accessController.drop) {
+        await accessController.drop()
+      }
+      events.emit('drop')
+    },
+    close: async () => {
+      await sync.stop()
+      await queue.onIdle()
+      await log.close()
+      if (accessController && accessController.close) {
+        await accessController.close()
+      }
+      events.emit('close')
+    },
+    addOperation: async (op: DatabaseOperation<T>): Promise<string> => {
+      const task = async () => {
+        const entry = await log.append(op, { referencesCount })
+        await sync.add(entry)
+        if (onUpdate) {
+          await onUpdate(log, entry)
+        }
+        events.emit('update', entry)
+
+        return entry.hash!
+      }
+
+      const hash = await queue.add(task)
+      await queue.onIdle()
+
+      return hash as string
+    },
   }
+
+  return instance
 }

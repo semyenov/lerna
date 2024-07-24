@@ -13,5 +13,5 @@ export interface StorageInstance<T> {
   iterator: (options?: {
     amount: number
     reverse: boolean
-  }) => AsyncGenerator<[string, T], void>
+  }) => AsyncIterable<[string, T]>
 }

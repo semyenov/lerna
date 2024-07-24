@@ -1,5 +1,5 @@
 /* eslint-disable no-unused-vars */
-import { EVENTS_DATABASE_TYPE } from '../constants.js'
+import { DATABASE_EVENTS_TYPE } from '../constants.js'
 import {
   Database,
   type DatabaseInstance,
@@ -75,7 +75,7 @@ export const Events: DatabaseType<'events'> = () => {
     const instance: EventsInstance<T> = {
       ...database,
 
-      type: EVENTS_DATABASE_TYPE,
+      type: DATABASE_EVENTS_TYPE,
       add,
       get,
       iterator,
@@ -86,4 +86,4 @@ export const Events: DatabaseType<'events'> = () => {
   }
 }
 
-Events.type = EVENTS_DATABASE_TYPE
+Events.type = DATABASE_EVENTS_TYPE

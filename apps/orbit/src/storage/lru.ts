@@ -8,6 +8,8 @@
 // @ts-ignore
 import LRU from 'lru'
 
+import { STORAGE_LRU_SIZE } from '../constants'
+
 import type { StorageInstance } from './types'
 
 export interface LRUStorageOptions {
@@ -15,12 +17,10 @@ export interface LRUStorageOptions {
 }
 export interface LRUStorageInstance<T> extends StorageInstance<T> {}
 
-const DEFAULT_SIZE = 1000000
-
 export const LRUStorage = async <T>({
-  size,
+  size = STORAGE_LRU_SIZE,
 }: LRUStorageOptions): Promise<LRUStorageInstance<T>> => {
-  let lru = new LRU<T>(size || DEFAULT_SIZE)
+  let lru = new LRU<T>(size)
 
   const storage: LRUStorageInstance<T> = {
     put: async (hash: string, data: T) => {
@@ -46,7 +46,7 @@ export const LRUStorage = async <T>({
       }
     },
     clear: async () => {
-      lru = new LRU(size || DEFAULT_SIZE)
+      lru = new LRU(size || STORAGE_LRU_SIZE)
     },
     close: async () => {},
   }

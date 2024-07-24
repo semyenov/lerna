@@ -29,12 +29,13 @@ export interface LogAppendOptions {
 export interface LogOptions<T> {
   logId?: string
   logHeads?: EntryInstance<T>[]
-  accessController?: AccessControllerInstance
   entries?: EntryInstance<T>[]
 
   entryStorage?: StorageInstance<Uint8Array>
   headsStorage?: StorageInstance<Uint8Array>
   indexStorage?: StorageInstance<boolean>
+
+  accessController?: AccessControllerInstance
 
   sortFn?: (a: EntryInstance<T>, b: EntryInstance<T>) => number
 }
@@ -268,11 +269,13 @@ export const Log = async <T>(
 
       /* 3. Find missing entries and connections (=path in the DAG) to the current heads */
       const headsHashes = (await heads()).map((e) => e.hash)
+
       const hashesToAdd = new Set([entry.hash])
       const hashesToGet = new Set([
         ...(entry.next ?? []),
         ...(entry.refs ?? []),
       ])
+
       const connectedHeads = new Set<string>()
 
       const traverseAndVerify = async () => {
@@ -313,7 +316,7 @@ export const Log = async <T>(
 
       /* 5. Remove heads which new entries are connect to */
       for (const hash of connectedHeads.values()) {
-        await heads_.remove(hash!)
+        await heads_.remove(hash)
       }
 
       /* 6. Add the new entry to heads (=union with current heads) */
@@ -325,18 +328,6 @@ export const Log = async <T>(
     return joinQueue.add(task) as Promise<boolean>
   }
 
-  const clear = async () => {
-    await indexStorage_.clear()
-    await headsStorage_.clear()
-    await storage.clear()
-  }
-
-  const close = async () => {
-    await indexStorage_.close()
-    await headsStorage_.close()
-    await storage.close()
-  }
-
   async function* traverse(
     rootEntries?: EntryInstance<T>[] | null,
     shouldStopFn: (
@@ -345,17 +336,17 @@ export const Log = async <T>(
     ) => Promise<boolean> = DEFAULT_STOP_FN<T>,
     useRefs: boolean = true,
   ) {
+    let toFetch: string[] = []
     // By default, we don't stop traversal and traverse
     // until the end of the log
     // Start traversal from given entries or from current heads
     const rootEntries_ = rootEntries || (await heads())
     // Sort the given given root entries and use as the starting stack
     let stack = rootEntries_.sort(sortFn_)
+    // Keep a record of all the hashes we are fetching or have already fetched
+    const fetched: Record<string, boolean> = {}
     // Keep a record of all the hashes of entries we've traversed and yielded
     const traversed: Record<string, boolean> = {}
-    // Keep a record of all the hashes we are fetching or have already fetched
-    let toFetch: string[] = []
-    const fetched: Record<string, boolean> = {}
     // A function to check if we've seen a hash
     const notIndexed = (hash: string) => !(traversed[hash!] || fetched[hash!])
     // Current entry during traversal
@@ -364,7 +355,8 @@ export const Log = async <T>(
     while (stack.length > 0) {
       stack = stack.sort(sortFn_)
       // Get the next entry from the stack
-      entry = stack.pop()!
+      entry = stack.pop() as EntryInstance<T>
+
       if (entry) {
         const { hash, next, refs } = entry
         // If we have an entry that we haven't traversed yet, process it
@@ -381,35 +373,39 @@ export const Log = async <T>(
           fetched[hash!] = true
           // Add the next and refs hashes to the list of hashes to fetch next,
           // filter out traversed and fetched hashes
-          toFetch = [...toFetch, ...next!, ...(useRefs ? refs! : [])].filter(
+          toFetch = [...toFetch, ...next, ...(useRefs ? refs : [])].filter(
             notIndexed,
           )
           // Function to fetch an entry and making sure it's not a duplicate (check the hash indices)
-          const fetchEntries = (hash: string) => {
+          const fetchEntries = async (hash: string) => {
             if (!traversed[hash!] && !fetched[hash!]) {
               fetched[hash!] = true
+
               return get(hash)
             }
+
+            return null
           }
           // Fetch the next/reference entries
           const nexts = (await Promise.all(toFetch.map(fetchEntries))).filter(
-            (e) => e !== null && e !== undefined,
+            (e): e is EntryInstance<T> => e !== null,
           )
 
           // Add the next and refs fields from the fetched entries to the next round
           toFetch = nexts
             .reduce(
-              (res, acc) =>
+              (acc, cur) =>
                 Array.from(
                   new Set([
-                    ...res,
-                    ...acc.next!,
-                    ...(useRefs ? acc.refs! : []),
+                    ...acc,
+                    ...cur.next!,
+                    ...(useRefs ? cur.refs! : []),
                   ]),
                 ),
               [] as string[],
             )
             .filter(notIndexed)
+
           // Add the fetched entries to the stack to be processed
           stack = [...nexts, ...stack]
         }
@@ -418,22 +414,22 @@ export const Log = async <T>(
   }
 
   async function* iterator(
-    options: LogIteratorOptions = { amount: -1 },
-  ): AsyncGenerator<EntryInstance<T>> {
+    { amount = -1, lte, lt, gt, gte }: LogIteratorOptions = { amount: -1 },
+  ): AsyncIterable<EntryInstance<T>> {
     // TODO: write comments on how the iterator algorithm works
     let lte_: (EntryInstance<T> | null)[] | null = null
     let lt_: (EntryInstance<T> | null)[] | null = null
 
-    if (options.amount === 0) {
+    if (amount === 0) {
       return
     }
 
-    if (typeof options.lte === 'string') {
-      lte_ = [await get(options.lte!)]
+    if (typeof lte === 'string') {
+      lte_ = [await get(lte!)]
     }
 
-    if (typeof options.lt === 'string') {
-      const entry = await get(options.lt)
+    if (typeof lt === 'string') {
+      const entry = await get(lt)
       const nexts = await Promise.all((entry?.next ?? []).map((n) => get(n)))
       lt_ = nexts
     }
@@ -446,16 +442,16 @@ export const Log = async <T>(
     }
 
     const start: EntryInstance<T>[] = (lt_ || lte_ || (await heads())).filter(
-      (i) => i !== null,
+      (e): e is EntryInstance<T> => e !== null,
     )
-    const end =
-      options.gt || options.gte ? await get((options.gt || options.gte)!) : null
 
-    const amountToIterate = end || options.amount === -1 ? -1 : options.amount
+    const end = gt || gte ? await get((gt || gte)!) : null
+    const amountToIterate = end || amount === -1 ? -1 : amount
 
     let count = 0
     const shouldStopTraversal = async (entry: EntryInstance<T>) => {
       count++
+
       if (!entry) {
         return false
       }
@@ -465,18 +461,19 @@ export const Log = async <T>(
       if (end && Entry.isEqual(entry, end)) {
         return true
       }
+
       return false
     }
 
-    const useBuffer = end && options.amount !== -1 && !options.lt && !lte_
-    const buffer = useBuffer ? new LRU(options.amount || 0 + 2) : null
     let index = 0
+    const useBuffer = (end || false) && amount !== -1 && !lt && !lte_
+    const buffer = useBuffer ? new LRU(amount + 2) : null
 
     const it = traverse(start, shouldStopTraversal)
 
     for await (const entry of it) {
-      const skipFirst = options.lt && Entry.isEqual(entry, start[0])
-      const skipLast = options.gt && Entry.isEqual(entry, end!)
+      const skipFirst = lt && Entry.isEqual(entry, start[0])
+      const skipLast = gt && Entry.isEqual(entry, end!)
       const skip = skipFirst || skipLast
       if (!skip) {
         if (useBuffer) {
@@ -489,8 +486,8 @@ export const Log = async <T>(
 
     if (useBuffer) {
       const endIndex = buffer.keys.length
-      const startIndex =
-        endIndex > options.amount! ? endIndex - options.amount! : 0
+      const startIndex = endIndex > amount ? endIndex - amount : 0
+
       const keys = buffer.keys.slice(startIndex, endIndex)
       for (const key of keys) {
         const hash = buffer.get(key)
@@ -501,7 +498,7 @@ export const Log = async <T>(
   }
 
   const getReferences = async (heads: EntryInstance<T>[], amount: number) => {
-    let refs = []
+    let refs: string[] = []
     const shouldStopTraversal = async (
       _entry: EntryInstance<T>,
       _useRefs: boolean,
@@ -509,8 +506,13 @@ export const Log = async <T>(
       return refs.length >= amount && amount !== -1
     }
     for await (const { hash } of traverse(heads, shouldStopTraversal, false)) {
-      refs.push(hash!)
+      if (!hash) {
+        continue
+      }
+
+      refs.push(hash)
     }
+
     refs = refs.slice(heads.length + 1, amount)
 
     return refs
@@ -523,7 +525,19 @@ export const Log = async <T>(
     return Clock(identity.publicKey, maxTime)
   }
 
-  return {
+  const clear = async () => {
+    await indexStorage_.clear()
+    await headsStorage_.clear()
+    await storage.clear()
+  }
+
+  const close = async () => {
+    await indexStorage_.close()
+    await headsStorage_.close()
+    await storage.close()
+  }
+
+  const instance: LogInstance<T> = {
     id,
     clock,
     heads,
@@ -542,6 +556,8 @@ export const Log = async <T>(
     identity,
     storage,
   }
+
+  return instance
 }
 
 const isLog = <T = unknown>(obj: any): obj is LogInstance<T> => {

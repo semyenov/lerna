@@ -3,6 +3,8 @@ import { base58btc } from 'multiformats/bases/base58'
 import { CID } from 'multiformats/cid'
 import { TimeoutController } from 'timeout-abort-controller'
 
+import { STORAGE_IPFS_BLOCKSTORAGE_TIMEOUT } from '../constants'
+
 import type { StorageInstance } from './types'
 
 export interface IPFSBlockStorageOptions {
@@ -12,18 +14,16 @@ export interface IPFSBlockStorageOptions {
 }
 export interface IPFSBlockStorageInstance<T> extends StorageInstance<T> {}
 
-const DEFAULT_TIMEOUT = 30000 // 30 seconds
-
 export const IPFSBlockStorage = async <T = unknown>({
   ipfs,
   pin,
-  timeout = DEFAULT_TIMEOUT,
+  timeout = STORAGE_IPFS_BLOCKSTORAGE_TIMEOUT,
 }: IPFSBlockStorageOptions): Promise<IPFSBlockStorageInstance<T>> => {
   if (!ipfs) {
     throw new Error('An instance of ipfs is required.')
   }
 
-  const storage: IPFSBlockStorageInstance<T> = {
+  const instance: IPFSBlockStorageInstance<T> = {
     put: async (hash: string, data: any) => {
       const cid = CID.parse(hash, base58btc)
       const { signal } = new TimeoutController(timeout)
@@ -36,7 +36,9 @@ export const IPFSBlockStorage = async <T = unknown>({
     del: async () => {},
     get: async (hash: string) => {
       const cid = CID.parse(hash, base58btc)
-      const { signal } = new TimeoutController(timeout || DEFAULT_TIMEOUT)
+      const { signal } = new TimeoutController(
+        timeout || STORAGE_IPFS_BLOCKSTORAGE_TIMEOUT,
+      )
       const block = await ipfs.blockstore.get(cid, { signal })
       if (block) {
         return block
@@ -48,5 +50,5 @@ export const IPFSBlockStorage = async <T = unknown>({
     close: async () => {},
   }
 
-  return storage
+  return instance
 }

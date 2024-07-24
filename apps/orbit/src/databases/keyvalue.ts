@@ -1,5 +1,5 @@
 /* eslint-disable no-unused-vars */
-import { KEYVALUE_DATABASE_TYPE } from '../constants'
+import { DATABASE_KEYVALUE_TYPE } from '../constants'
 import {
   Database,
   type DatabaseInstance,
@@ -117,7 +117,7 @@ export const KeyValue: DatabaseType<'keyvalue'> =
     const instance: KeyValueInstance<T> = {
       ...database,
 
-      type: KEYVALUE_DATABASE_TYPE,
+      type: DATABASE_KEYVALUE_TYPE,
       put,
       set: put,
       del,
@@ -129,4 +129,4 @@ export const KeyValue: DatabaseType<'keyvalue'> =
     return instance
   }
 
-KeyValue.type = KEYVALUE_DATABASE_TYPE
+KeyValue.type = DATABASE_KEYVALUE_TYPE

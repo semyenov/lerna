@@ -7,7 +7,7 @@ import {
 } from './access-controllers/index.js'
 import { IPFSAccessController } from './access-controllers/ipfs.js'
 import { OrbitDBAddress, isValidAddress } from './address.js'
-import { DEFAULT_DATABASE_TYPE } from './constants.js'
+import { DATABASE_DEFAULT_TYPE } from './constants.js'
 import {
   type DatabaseType,
   type DatabaseTypeMap,
@@ -38,8 +38,8 @@ export interface OrbitDBOpenOptions<T, D extends keyof DatabaseTypeMap<T>> {
     AccessControllerType<string, AccessControllerInstance>
   >
 
-  headsStorage?: StorageInstance<T>
-  entryStorage?: StorageInstance<T>
+  headsStorage?: StorageInstance<Uint8Array>
+  entryStorage?: StorageInstance<Uint8Array>
   indexStorage?: StorageInstance<boolean>
 }
 
@@ -61,7 +61,7 @@ export interface OrbitDBInstance {
 
   open: <T, D extends keyof DatabaseTypeMap<T>>(
     address: string,
-    options?: OrbitDBOpenOptions<T, D>,
+    options: OrbitDBOpenOptions<T, D>,
   ) => Promise<DatabaseTypeMap<T>[D]>
   stop: () => Promise<void>
 }
@@ -114,7 +114,7 @@ export const OrbitDB = async ({
   }
 
   const manifestStore = await ManifestStore({ ipfs })
-  const databases: Record<string, DatabaseInstance> = {}
+  const databases: Record<string, DatabaseInstance<any>> = {}
 
   const open = async <T, D extends keyof DatabaseTypeMap<T>>(
     address: string,
@@ -124,17 +124,18 @@ export const OrbitDB = async ({
       sync,
       Database,
       AccessController,
+
       headsStorage,
       entryStorage,
       indexStorage,
       referencesCount,
-    }: OrbitDBOpenOptions<T, D> = {},
+    }: OrbitDBOpenOptions<T, D>,
   ): Promise<DatabaseTypeMap<T>[D]> => {
     let name: string,
       manifest: Manifest | null,
       accessController: AccessControllerInstance,
       address_: string = address,
-      type_: D = type!,
+      type_: D = type || (DATABASE_DEFAULT_TYPE as D),
       meta_: any = meta
 
     if (databases[address_!]) {
@@ -167,11 +168,12 @@ export const OrbitDB = async ({
         identities: identities_,
         address: manifest.accessController,
       })
+
       name = manifest.name
       type_ = type_ || manifest.type
       meta_ = meta_ || manifest.meta
     } else {
-      type_ = type_ || DEFAULT_DATABASE_TYPE
+      type_ = type_ || (DATABASE_DEFAULT_TYPE as D)
       const AccessControllerType = AccessController || DEFAULT_ACCESS_CONTROLLER
 
       accessController = await AccessControllerType({
@@ -205,7 +207,7 @@ export const OrbitDB = async ({
       throw new Error(`Unsupported database type: '${type_}'`)
     }
 
-    const db = await DatabaseType({
+    const db = await DatabaseType<T>({
       ipfs,
       identity: finalIdentity,
       address: address_,
@@ -251,7 +253,7 @@ export const OrbitDB = async ({
     Object.keys(databases).forEach((key) => delete databases[key!])
   }
 
-  return {
+  const instance: OrbitDBInstance = {
     id: generatedId,
     open,
     stop,
@@ -261,6 +263,8 @@ export const OrbitDB = async ({
     identity: finalIdentity,
     peerId,
   }
+
+  return instance
 }
 
 export { OrbitDBAddress }
