@@ -53,7 +53,7 @@ export interface LogInstance<T> {
   has: (hash: string) => Promise<boolean>
   append: (payload: T, options?: LogAppendOptions) => Promise<EntryInstance<T>>
   join: (log: LogInstance<T>) => Promise<void>
-  joinEntry: (entry: EntryInstance<T>) => Promise<void>
+  joinEntry: (entry: EntryInstance<T>) => Promise<boolean>
   traverse: (
     rootEntries?: EntryInstance<T>[] | null,
     shouldStopFn?: (
@@ -77,13 +77,15 @@ function maxClockTimeReducer(res: number, acc: EntryInstance<any>) {
 }
 
 const DEFAULT_STORAGE = MemoryStorage
-const DEFAULT_STOP_FN = (a: EntryInstance, b: EntryInstance) =>
+
+const DEFAULT_STOP_FN = <T>(_entry: EntryInstance<T>, _useRefs: boolean) =>
   Promise.resolve(false)
+
 const DEFAULT_ACCESS_CONTROLLER =
   async (): Promise<AccessControllerInstance> => {
     // An AccessController may do any async initialization stuff here...
     return {
-      canAppend: async (entry: EntryInstance<any>) => true,
+      canAppend: async (_entry: EntryInstance<any>) => true,
     }
   }
 
@@ -232,7 +234,7 @@ export const Log = async <T>(
       /* 1. Check if the entry is already in the log and return early if it is */
       const isAlreadyInTheLog = await has(entry.hash!)
       if (isAlreadyInTheLog) {
-        return
+        return false
       }
 
       const verifyEntry = async (entry: EntryInstance<T>) => {
@@ -314,10 +316,10 @@ export const Log = async <T>(
       /* 6. Add the new entry to heads (=union with current heads) */
       await heads_.add(entry)
 
-      return
+      return true
     }
 
-    return joinQueue.add(task)
+    return joinQueue.add(task) as Promise<boolean>
   }
 
   const clear = async () => {
@@ -342,7 +344,7 @@ export const Log = async <T>(
     shouldStopFn: (
       entry: EntryInstance<T>,
       useRefs: boolean,
-    ) => Promise<boolean> = async () => false,
+    ) => Promise<boolean> = DEFAULT_STOP_FN<T>,
     useRefs: boolean = true,
   ) {
     // By default, we don't stop traversal and traverse
@@ -503,8 +505,8 @@ export const Log = async <T>(
   const getReferences = async (heads: EntryInstance<T>[], amount: number) => {
     let refs = []
     const shouldStopTraversal = async (
-      entry: EntryInstance<T>,
-      useRefs: boolean,
+      _entry: EntryInstance<T>,
+      _useRefs: boolean,
     ) => {
       return refs.length >= amount && amount !== -1
     }

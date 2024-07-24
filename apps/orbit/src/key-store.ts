@@ -170,7 +170,7 @@ export async function signMessage(
 export async function verifyMessage(
   signature: string,
   publicKey: string,
-  data: string | Uint8Array,
+  data: string,
 ): Promise<boolean> {
   const verifiedCache = await VERIFIED_CACHE
   const cached = await verifiedCache.get(signature)

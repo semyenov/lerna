@@ -7,8 +7,8 @@ import { TimeoutController } from 'timeout-abort-controller'
 import { join } from './utils'
 
 import type { EntryInstance } from './oplog/entry.js'
+import type { LogInstance } from './oplog/log'
 import type { HeliaInstance, PeerId } from './vendor'
-import type { LogInstance } from '../types/log.js'
 import type { Sink } from 'it-stream-types'
 import type { Uint8ArrayList } from 'uint8arraylist'
 
@@ -79,7 +79,7 @@ export const Sync = async <T>({
     return (async function* () {
       const heads = await log.heads()
       for await (const { bytes } of heads) {
-        yield bytes
+        yield bytes!
       }
     })()
   }

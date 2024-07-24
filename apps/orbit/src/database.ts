@@ -16,7 +16,7 @@ import {
   LevelStorage,
   type StorageInstance,
 } from './storage/index.js'
-import { Sync, SyncInstance } from './sync.js'
+import { Sync, type SyncInstance } from './sync.js'
 import { join } from './utils'
 
 import type { AccessControllerInstance } from './access-controllers'
@@ -26,8 +26,8 @@ import type {
   IdentityInstance,
 } from './identities/index.js'
 import type { EntryInstance } from './oplog/entry.js'
+import type { LogInstance } from './oplog/log.js'
 import type { HeliaInstance, PeerId } from './vendor.js'
-import { LogInstance } from './oplog/log.js'
 
 export interface DatabaseOptions<T> {
   meta: any
@@ -37,7 +37,7 @@ export interface DatabaseOptions<T> {
   referencesCount?: number
   syncAutomatically?: boolean
 
-  ipfs?: HeliaInstance
+  ipfs: HeliaInstance
   accessController?: AccessControllerInstance
   identity?: IdentityInstance
   identities?: IdentitiesInstance
@@ -46,7 +46,7 @@ export interface DatabaseOptions<T> {
   indexStorage?: StorageInstance<any>
   onUpdate?: (
     log: LogInstance<DatabaseOperation<T>>,
-    entry: EntryInstance<T>,
+    entry: EntryInstance<T> | EntryInstance<DatabaseOperation<T>>,
   ) => Promise<void>
 }
 
@@ -71,11 +71,11 @@ export interface DatabaseInstance<T = unknown> {
   meta: any
 
   log: LogInstance<DatabaseOperation<T>>
-  sync: SyncInstance<T>
+  sync: SyncInstance<DatabaseOperation<T>>
 
   events: DatabaseEvents<T>
-  access?: AccessControllerInstance
   identity?: IdentityInstance
+  accessController?: AccessControllerInstance
 
   addOperation: (op: DatabaseOperation<T>) => Promise<string>
   close: () => Promise<void>
@@ -133,7 +133,7 @@ export const Database = async <T = any>({
   const events = new EventEmitter()
   const queue = new PQueue({ concurrency: 1 })
 
-  const addOperation = async (op: DatabaseOperation<T>) => {
+  const addOperation = async (op: DatabaseOperation<T>): Promise<string> => {
     const task = async () => {
       const entry = await log.append(op, { referencesCount })
       await sync.add(entry)
@@ -143,9 +143,11 @@ export const Database = async <T = any>({
       events.emit('update', entry)
       return entry.hash
     }
+
     const hash = await queue.add(task)
     await queue.onIdle()
-    return hash
+
+    return hash as string
   }
 
   const applyOperation = async (bytes: Uint8Array) => {
@@ -161,6 +163,7 @@ export const Database = async <T = any>({
         }
       }
     }
+
     await queue.add(task)
   }
 
@@ -189,8 +192,8 @@ export const Database = async <T = any>({
   const drop = async () => {
     await queue.onIdle()
     await log.clear()
-    if (access && access.drop) {
-      await access.drop()
+    if (accessController && accessController.drop) {
+      await accessController.drop()
     }
     events.emit('drop')
   }
@@ -199,11 +202,16 @@ export const Database = async <T = any>({
     ipfs,
     log,
     events,
-    onSynced: applyOperation,
+    onSynced: applyOperation as unknown as (
+      peerId: PeerId,
+      heads: EntryInstance<DatabaseOperation<T>>[],
+    ) => Promise<void>,
     start: syncAutomatically,
   })
 
   return {
+    type: 'database',
+
     /**
      * The address of the database.
      * @†ype string
@@ -256,6 +264,6 @@ export const Database = async <T = any>({
      * @memberof module:Databases~Database
      * @instance
      */
-    access,
+    accessController,
   }
 }

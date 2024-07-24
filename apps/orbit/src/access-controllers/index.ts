@@ -39,7 +39,7 @@ type AccessController<T extends string, U extends AccessControllerInstance> = {
 
 const accessControllers: Record<
   string,
-  AccessController<string, AccessControllerInstance>
+  ReturnType<AccessController<string, AccessControllerInstance>>
 > = {}
 
 const getAccessController = <T extends keyof typeof accessControllers>(
