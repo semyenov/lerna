@@ -1,4 +1,3 @@
-/* eslint-disable no-unused-vars */
 import {
   KeyStore,
   type KeyStoreInstance,
@@ -13,13 +12,7 @@ import {
 } from '../storage'
 import { join } from '../utils'
 
-import {
-  Identity,
-  type IdentityInstance,
-  decodeIdentity,
-  isEqual,
-  isIdentity,
-} from './identity.js'
+import { Identity, type IdentityInstance } from './identity.js'
 import {
   type IdentityProvider,
   type IdentityProviderInstance,
@@ -32,9 +25,9 @@ interface IdentitiesCreateIdentityOptions {
   id?: string
   provider?: ReturnType<IdentityProvider<string, IdentityProviderInstance>>
 }
+
 export interface IdentitiesOptions {
   path?: string
-
   ipfs?: HeliaInstance
   keystore?: KeyStoreInstance
   storage?: StorageInstance<Uint8Array>
@@ -57,132 +50,150 @@ export interface IdentitiesInstance {
 
 const DEFAULT_KEYS_PATH = join('./orbitdb', 'identities')
 
-export const Identities = async (
-  { keystore, path, storage, ipfs }: IdentitiesOptions = {
-    path: DEFAULT_KEYS_PATH,
-  },
-) => {
-  /**
-   * @namespace module:Identities~Identities
-   * @description The instance returned by {@link module:Identities}.
-   */
+export class Identities implements IdentitiesInstance {
+  keystore: KeyStoreInstance
+  private db: StorageInstance<Uint8Array>
+  private verifiedIdentitiesCache: LRUStorage<IdentityInstance>
 
-  const keys = keystore || (await KeyStore({ path: path || DEFAULT_KEYS_PATH }))
-
-  const db: StorageInstance<Uint8Array> = storage
-    ? storage
-    : await ComposedStorage({
-        storage1: await LRUStorage({ size: 1000 }),
-        storage2: await IPFSBlockStorage({ ipfs, pin: true }),
-      })
-
-  const verifiedIdentitiesCache = await LRUStorage<IdentityInstance>({
-    size: 1000,
-  })
-
-  const identities: IdentitiesInstance = {
-    keystore: keys,
-
-    createIdentity: async (options: IdentitiesCreateIdentityOptions = {}) => {
-      const DefaultIdentityProvider = getIdentityProvider('publickey')
-      const identityProviderInit =
-        options.provider || DefaultIdentityProvider({ keystore: keys })
-
-      const identityProvider: IdentityProviderInstance =
-        await identityProviderInit()
-
-      if (!getIdentityProvider(identityProvider.type)) {
-        throw new Error(
-          'Identity provider is unknown. Use useIdentityProvider(provider) to register the identity provider',
-        )
-      }
-
-      const id = await identityProvider.getId({
-        id: options.id!,
-      })
-      const privateKey = (await keys.getKey(id)) || (await keys.createKey(id))
-      const publicKey = keys.getPublic(privateKey)
-      const idSignature = await signMessage(privateKey, id)
-      const publicKeyAndIdSignature = await identityProvider.signIdentity(
-        publicKey + idSignature,
-        { id: options.id! },
-      )
-      const signatures = {
-        id: idSignature,
-        publicKey: publicKeyAndIdSignature,
-      }
-
-      const identity = await Identity({
-        id,
-        publicKey,
-        signatures,
-        type: identityProvider.type,
-        sign: async (data: string) => {
-          const signingKey = await keys.getKey(id)
-
-          if (!signingKey) {
-            throw new Error('Private signing key not found from KeyStore')
-          }
-
-          return await signMessage(signingKey, data)
-        },
-        verify: async (signature: string, data: string) => {
-          return await verifyMessage(signature, publicKey, data)
-        },
-      })
-
-      await db.put(identity.hash, identity.bytes)
-
-      return identity
-    },
-    verifyIdentity: async (identity) => {
-      if (!isIdentity(identity)) {
-        return false
-      }
-
-      const { id, publicKey, signatures } = identity
-      const idSignatureVerified = await (async (signature, publicKey, data) => {
-        return verifyMessage(signature, publicKey, data)
-      })(signatures.id, publicKey, id)
-      if (!idSignatureVerified) {
-        return false
-      }
-
-      const verifiedIdentity = await verifiedIdentitiesCache.get(signatures.id)
-      if (verifiedIdentity) {
-        return isEqual(identity, verifiedIdentity)
-      }
-
-      const Provider = getIdentityProvider(identity.type)
-
-      const identityVerified = await Provider.verifyIdentity(identity)
-      if (identityVerified) {
-        await verifiedIdentitiesCache.put(signatures.id, identity)
-      }
-
-      return identityVerified
-    },
-    getIdentity: async (hash) => {
-      const bytes = await db.get(hash)
-      if (bytes) {
-        return decodeIdentity(bytes)
-      }
-
-      return null
-    },
-    sign: async (identity, data) => {
-      const signingKey = await keys.getKey(identity.id)
-
-      if (!signingKey) {
-        throw new Error('Private signing key not found from KeyStore')
-      }
-
-      return await signMessage(signingKey, data)
-    },
-    verify: async (signature, publicKey, data) => {
-      return await verifyMessage(signature, publicKey, data)
-    },
+  private constructor(
+    keystore: KeyStoreInstance,
+    db: StorageInstance<Uint8Array>,
+    verifiedIdentitiesCache: LRUStorage<IdentityInstance>,
+  ) {
+    this.keystore = keystore
+    this.db = db
+    this.verifiedIdentitiesCache = verifiedIdentitiesCache
   }
 
-  return identities
+  static async create(
+    options: IdentitiesOptions = { path: DEFAULT_KEYS_PATH },
+  ): Promise<Identities> {
+    const keys =
+      options.keystore ||
+      (await KeyStore.create({ path: options.path || DEFAULT_KEYS_PATH }))
+
+    const db: StorageInstance<Uint8Array> = options.storage
+      ? options.storage
+      : await ComposedStorage.create({
+          storage1: await LRUStorage.create<Uint8Array>({ size: 1000 }),
+          storage2: await IPFSBlockStorage.create({
+            ipfs: options.ipfs,
+            pin: true,
+          }),
+        })
+
+    const verifiedIdentitiesCache = await LRUStorage.create<IdentityInstance>({
+      size: 1000,
+    })
+
+    return new Identities(keys, db, verifiedIdentitiesCache)
+  }
+
+  async createIdentity(
+    options: IdentitiesCreateIdentityOptions = {},
+  ): Promise<IdentityInstance> {
+    const DefaultIdentityProvider = getIdentityProvider('publickey')
+    const identityProviderInit =
+      options.provider || DefaultIdentityProvider({ keystore: this.keystore })
+
+    const identityProvider: IdentityProviderInstance =
+      await identityProviderInit()
+
+    if (!getIdentityProvider(identityProvider.type)) {
+      throw new Error(
+        'Identity provider is unknown. Use useIdentityProvider(provider) to register the identity provider',
+      )
+    }
+
+    const id = await identityProvider.getId({ id: options.id! })
+    const privateKey =
+      (await this.keystore.getKey(id)) || (await this.keystore.createKey(id))
+    const publicKey = this.keystore.getPublic(privateKey)
+    const idSignature = await signMessage(privateKey, id)
+    const publicKeyAndIdSignature = await identityProvider.signIdentity(
+      publicKey + idSignature,
+      { id: options.id! },
+    )
+    const signatures = {
+      id: idSignature,
+      publicKey: publicKeyAndIdSignature,
+    }
+
+    const identity = await Identity.create({
+      id,
+      publicKey,
+      signatures,
+      type: identityProvider.type,
+      sign: async (data: string) => {
+        const signingKey = await this.keystore.getKey(id)
+        if (!signingKey) {
+          throw new Error('Private signing key not found from KeyStore')
+        }
+        return await signMessage(signingKey, data)
+      },
+      verify: async (signature: string, data: string) => {
+        return await verifyMessage(signature, publicKey, data)
+      },
+    })
+
+    await this.db.put(identity.hash, identity.bytes)
+
+    return identity
+  }
+
+  async verifyIdentity(identity: IdentityInstance): Promise<boolean> {
+    if (!Identity.isIdentity(identity)) {
+      return false
+    }
+
+    const { id, publicKey, signatures } = identity
+    const idSignatureVerified = await verifyMessage(
+      signatures.id,
+      publicKey,
+      id,
+    )
+    if (!idSignatureVerified) {
+      return false
+    }
+
+    const verifiedIdentity = await this.verifiedIdentitiesCache.get(
+      signatures.id,
+    )
+    if (verifiedIdentity) {
+      return Identity.isEqual(identity, verifiedIdentity)
+    }
+
+    const Provider = getIdentityProvider(identity.type)
+
+    const identityVerified = await Provider.verifyIdentity(identity)
+    if (identityVerified) {
+      await this.verifiedIdentitiesCache.put(signatures.id, identity)
+    }
+
+    return identityVerified
+  }
+
+  async getIdentity(hash: string): Promise<IdentityInstance | null> {
+    const bytes = await this.db.get(hash)
+    if (bytes) {
+      return Identity.decode(bytes)
+    }
+    return null
+  }
+
+  async sign(identity: IdentityInstance, data: string): Promise<string> {
+    const signingKey = await this.keystore.getKey(identity.id)
+    if (!signingKey) {
+      throw new Error('Private signing key not found from KeyStore')
+    }
+    return await signMessage(signingKey, data)
+  }
+
+  async verify(
+    signature: string,
+    publicKey: string,
+    data: string,
+  ): Promise<boolean> {
+    return await verifyMessage(signature, publicKey, data)
+  }
 }

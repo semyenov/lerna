@@ -5,8 +5,7 @@ import {
   type DatabaseOptions,
 } from '../database.js'
 
-import type { DatabaseOperation } from '.'
-import type { DatabaseType } from './index.js'
+import type { DatabaseOperation, DatabaseType } from '.'
 import type { LogInstance } from '../oplog/log.js'
 import type { SyncEvents, SyncInstance } from '../sync.js'
 import type { PeerSet } from '@libp2p/peer-collections'
@@ -26,10 +25,7 @@ export interface EventsIteratorOptions {
 }
 
 export interface EventsOptions<T = unknown> extends DatabaseOptions<T> {}
-
 export interface EventsInstance<T = unknown> extends DatabaseInstance<T> {
-  type: 'events'
-
   add: (value: T) => Promise<string>
   all: () => Promise<Omit<EventsDoc<T>, 'key'>[]>
   get: (hash: string) => Promise<T | null>
@@ -39,7 +35,11 @@ export interface EventsInstance<T = unknown> extends DatabaseInstance<T> {
 export class EventsDatabase<T = unknown> implements EventsInstance<T> {
   private database: DatabaseInstance<T>
 
-  private constructor(options: EventsOptions<T>) {
+  static get type(): 'events' {
+    return DATABASE_EVENTS_TYPE
+  }
+
+  constructor(options: EventsOptions<T>) {
     this.database = new Database<T>(options)
   }
 
@@ -48,10 +48,6 @@ export class EventsDatabase<T = unknown> implements EventsInstance<T> {
   ): Promise<EventsDatabase<T>> {
     const instance = new EventsDatabase<T>(options)
     return instance
-  }
-
-  get type(): 'events' {
-    return DATABASE_EVENTS_TYPE
   }
 
   get name(): string | undefined {

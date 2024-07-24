@@ -1,16 +1,17 @@
 export const DATABASE_PATH = './orbitdb/databases'
 export const KEYSTORE_PATH = './orbitdb/keystore'
 
-export const SYNC_TIMEOUT = 30000
 export const SYNC_PROTOCOL = '/orbitdb/heads'
+export const SYNC_TIMEOUT = 30000
 
-export const IPFS_CONTROLLER_TYPE = 'ipfs'
-export const ORBITDB_CONTROLLER_TYPE = 'orbitdb'
+export const ACCESS_CONTROLLER_IPFS_TYPE = 'ipfs'
+export const ACCESS_CONTROLLER_ORBITDB_TYPE = 'orbitdb'
 
-export const DATABASE_DOCUMENTS_TYPE = 'documents'
-export const DATABASE_EVENTS_TYPE = 'events'
-export const DATABASE_KEYVALUE_TYPE = 'keyvalue'
-export const DATABASE_KEYVALUE_INDEXED_TYPE = 'keyvalue-indexed'
+export const DATABASE_DOCUMENTS_TYPE = 'documents' as const
+export const DATABASE_EVENTS_TYPE = 'events' as const
+export const DATABASE_KEYVALUE_TYPE = 'keyvalue' as const
+export const DATABASE_KEYVALUE_INDEXED_TYPE = 'keyvalue-indexed' as const
+
 export const DATABASE_KEYVALUE_INDEXED_VALUE_ENCODING = 'json'
 
 export const DATABASE_REFERENCES_COUNT = 16
@@ -22,4 +23,6 @@ export const STORAGE_LEVEL_PATH = './orbitdb/level'
 export const STORAGE_LEVEL_VALUE_ENCODING = 'view'
 
 export const STORAGE_LRU_SIZE = 1000000
-export const STORAGE_IPFS_BLOCKSTORAGE_TIMEOUT = 30000 // 30 seconds
+export const STORAGE_IPFS_BLOCKSTORAGE_TIMEOUT = 30000
+
+export const IDENTITIES_PROVIDER_PUBLICKEY = 'publickey' as const

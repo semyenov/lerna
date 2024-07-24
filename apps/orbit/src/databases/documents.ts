@@ -43,6 +43,10 @@ export class DocumentsDatabase<T = unknown> implements DocumentsInstance<T> {
   private database: DatabaseInstance<T>
   public indexBy: string
 
+  static get type(): 'documents' {
+    return DATABASE_DOCUMENTS_TYPE
+  }
+
   private constructor(options: DatabaseOptions<T> & DocumentsOptions) {
     this.database = new Database<T>(options)
     this.indexBy = options.indexBy || '_id'
@@ -53,10 +57,6 @@ export class DocumentsDatabase<T = unknown> implements DocumentsInstance<T> {
   ): Promise<DocumentsDatabase<T>> {
     const instance = new DocumentsDatabase<T>(options)
     return instance
-  }
-
-  get type(): 'documents' {
-    return DATABASE_DOCUMENTS_TYPE
   }
 
   get name(): string | undefined {

@@ -64,7 +64,7 @@ export interface DatabaseInstance<
   name?: string
   address?: string
   indexBy?: string
-  type: string
+  // type: string
   peers: PeerSet
   meta: any
   log: LogInstance<DatabaseOperation<T>>

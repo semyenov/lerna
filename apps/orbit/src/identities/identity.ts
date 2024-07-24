@@ -1,4 +1,3 @@
-/* eslint-disable no-unused-vars */
 import * as dagCbor from '@ipld/dag-cbor'
 import { base58btc } from 'multiformats/bases/base58'
 import * as Block from 'multiformats/block'
@@ -6,13 +5,17 @@ import { sha256 } from 'multiformats/hashes/sha2'
 
 import type { IdentityProvider, IdentityProviderInstance } from './providers'
 
+export interface IdentitySignatures {
+  id: string
+  publicKey: string
+}
+
 export interface IdentityOptions {
   id: string
   type: string
   publicKey: string
-  signatures: { id: string; publicKey: string }
+  signatures: IdentitySignatures
   provider?: ReturnType<IdentityProvider<string, IdentityProviderInstance>>
-
   sign?: (data: any) => Promise<string>
   verify?: (data: any, signature: string) => Promise<boolean>
 }
@@ -26,94 +29,89 @@ const codec = dagCbor
 const hasher = sha256
 const hashStringEncoding = base58btc
 
-export const Identity = async ({
-  id,
-  publicKey,
-  signatures,
-  type,
-  sign,
-  verify,
-}: IdentityOptions) => {
-  if (!id) {
-    throw new Error('Identity id is required')
-  }
-  if (!publicKey) {
-    throw new Error('Invalid public key')
-  }
-  if (!signatures) {
-    throw new Error('Signatures object is required')
-  }
-  if (!signatures.id) {
-    throw new Error('Signature of id is required')
-  }
-  if (!signatures.publicKey) {
-    throw new Error('Signature of publicKey+id is required')
-  }
-  if (!type) {
-    throw new Error('Identity type is required')
+export class Identity implements IdentityInstance {
+  id: string
+  type: string
+  publicKey: string
+  signatures: IdentitySignatures
+  provider?: ReturnType<IdentityProvider<string, IdentityProviderInstance>>
+  sign?: (data: any) => Promise<string>
+  verify?: (data: any, signature: string) => Promise<boolean>
+  hash: string
+  bytes: Uint8Array
+
+  private constructor(
+    options: IdentityOptions & { hash: string; bytes: Uint8Array },
+  ) {
+    this.id = options.id
+    this.type = options.type
+    this.publicKey = options.publicKey
+    this.signatures = options.signatures
+    this.provider = options.provider
+    this.sign = options.sign
+    this.verify = options.verify
+    this.hash = options.hash
+    this.bytes = options.bytes
   }
 
-  const { hash, bytes } = await encodeIdentity({
-    id,
-    type,
-    publicKey,
-    signatures,
-  })
-
-  const identity: IdentityInstance = {
-    id,
-    type,
-    publicKey,
-    signatures,
-
-    sign,
-    verify,
-
-    hash,
-    bytes,
+  static async create(options: IdentityOptions): Promise<Identity> {
+    Identity.validateOptions(options)
+    const { hash, bytes } = await Identity.encodeIdentity(options)
+    return new Identity({ ...options, hash, bytes })
   }
 
-  return identity
-}
+  private static validateOptions(options: IdentityOptions): void {
+    if (!options.id) {
+      throw new Error('Identity id is required')
+    }
+    if (!options.publicKey) {
+      throw new Error('Invalid public key')
+    }
+    if (!options.signatures) {
+      throw new Error('Signatures object is required')
+    }
+    if (!options.signatures.id) {
+      throw new Error('Signature of id is required')
+    }
+    if (!options.signatures.publicKey) {
+      throw new Error('Signature of publicKey+id is required')
+    }
+    if (!options.type) {
+      throw new Error('Identity type is required')
+    }
+  }
 
-const encodeIdentity = async (identity: IdentityOptions) => {
-  const { id, publicKey, signatures, type } = identity
-  const value = { id, publicKey, signatures, type }
-  const { cid, bytes } = await Block.encode({ value, codec, hasher })
-  const hash = cid.toString(hashStringEncoding)
-  return { hash, bytes: Uint8Array.from(bytes) }
-}
+  private static async encodeIdentity(
+    identity: IdentityOptions,
+  ): Promise<{ hash: string; bytes: Uint8Array }> {
+    const { id, publicKey, signatures, type } = identity
+    const value = { id, publicKey, signatures, type }
+    const { cid, bytes } = await Block.encode({ value, codec, hasher })
+    const hash = cid.toString(hashStringEncoding)
+    return { hash, bytes: Uint8Array.from(bytes) }
+  }
 
-export async function decodeIdentity(bytes: Uint8Array) {
-  const { value } = await Block.decode<IdentityOptions, 113, 18>({
-    bytes,
-    codec,
-    hasher,
-  })
+  static async decode(bytes: Uint8Array): Promise<Identity> {
+    const { value } = await Block.decode<IdentityOptions, 113, 18>({
+      bytes,
+      codec,
+      hasher,
+    })
+    return Identity.create(value)
+  }
 
-  return Identity({ ...value })
-}
+  static isIdentity(identity: any): identity is Identity {
+    return identity instanceof Identity
+  }
 
-export function isIdentity(identity: any): identity is IdentityInstance {
-  return Boolean(
-    identity.id &&
-      identity.hash &&
-      identity.bytes &&
-      identity.publicKey &&
-      identity.signatures &&
-      identity.signatures.id &&
-      identity.signatures.publicKey &&
-      identity.type,
-  )
-}
-
-export function isEqual(a: IdentityInstance, b: IdentityInstance) {
-  return (
-    a.id === b.id &&
-    a.hash === b.hash &&
-    a.type === b.type &&
-    a.publicKey === b.publicKey &&
-    a.signatures.id === b.signatures.id &&
-    a.signatures.publicKey === b.signatures.publicKey
-  )
+  static isEqual(a: Identity, b: Identity): boolean {
+    return (
+      a.id === b.id &&
+      a.hash === b.hash &&
+      a.type === b.type &&
+      a.publicKey === b.publicKey &&
+      a.signatures.id === b.signatures.id &&
+      a.signatures.publicKey === b.signatures.publicKey
+    )
+  }
 }

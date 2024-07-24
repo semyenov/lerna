@@ -1,4 +1,3 @@
-/* eslint-disable no-unused-vars */
 import {
   type AccessControllerInstance,
   type AccessControllerType,
@@ -32,12 +31,10 @@ export interface OrbitDBOpenOptions<T, D extends keyof DatabaseTypeMap<T>> {
   meta?: any
   sync?: boolean
   referencesCount?: number
-
-  Database?: ReturnType<DatabaseType>
+  Database?: DatabaseType<D>
   AccessController?: ReturnType<
     AccessControllerType<string, AccessControllerInstance>
   >
-
   headsStorage?: StorageInstance<Uint8Array>
   entryStorage?: StorageInstance<Uint8Array>
   indexStorage?: StorageInstance<boolean>
@@ -59,92 +56,114 @@ export interface OrbitDBInstance {
   identity: IdentityInstance
   peerId: PeerId
 
-  open: <T, D extends keyof DatabaseTypeMap<T>>(
+  open: <T, D extends keyof DatabaseTypeMap>(
     address: string,
     options: OrbitDBOpenOptions<T, D>,
-  ) => Promise<DatabaseTypeMap<T>[D]>
+  ) => Promise<DatabaseType>
   stop: () => Promise<void>
 }
 
 const DEFAULT_ACCESS_CONTROLLER = IPFSAccessController({})
 
-export const OrbitDB = async ({
-  ipfs,
-  id,
-  identity,
-  identities,
-  directory,
-}: OrbitDBOptions): Promise<OrbitDBInstance> => {
-  /**
-   * @namespace module:OrbitDB~OrbitDB
-   * @description The instance returned by {@link module:OrbitDB}.
-   */
+export class OrbitDB implements OrbitDBInstance {
+  id: string
+  ipfs: HeliaInstance
+  directory: string
+  keystore: KeyStoreInstance
+  identity: IdentityInstance
+  peerId: PeerId
+  private identities: IdentitiesInstance
+  private manifestStore: ManifestStore
+  private databases: Record<string, DatabaseInstance<any>> = {}
 
-  if (ipfs === null) {
-    throw new Error('IPFS instance is a required argument.')
+  private constructor(
+    id: string,
+    ipfs: HeliaInstance,
+    directory: string,
+    keystore: KeyStoreInstance,
+    identity: IdentityInstance,
+    identities: IdentitiesInstance,
+    manifestStore: ManifestStore,
+  ) {
+    this.id = id
+    this.ipfs = ipfs
+    this.directory = directory
+    this.keystore = keystore
+    this.identity = identity
+    this.peerId = ipfs.libp2p.peerId
+    this.identities = identities
+    this.manifestStore = manifestStore
   }
 
-  const generatedId = id || (await createId())
-  const peerId: PeerId = ipfs.libp2p.peerId
-  const defaultDirectory = directory || './orbitdb'
-
-  let keystore: KeyStoreInstance
-  let identities_: IdentitiesInstance
-
-  if (identities) {
-    identities_ = identities
-    keystore = identities_.keystore
-  } else {
-    keystore = await KeyStore({ path: join(defaultDirectory, './keystore') })
-    identities_ = await Identities({ ipfs, keystore })
-  }
-
-  let finalIdentity: IdentityInstance
-  if (identity) {
-    if (typeof identity.provider === 'function') {
-      finalIdentity = await identities_.createIdentity({
-        id: identity.id,
-        provider: identity.provider,
-      })
-    } else {
-      finalIdentity = identity
+  static async create(options: OrbitDBOptions): Promise<OrbitDB> {
+    if (options.ipfs === null) {
+      throw new Error('IPFS instance is a required argument.')
     }
-  } else {
-    finalIdentity = await identities_.createIdentity({ id: generatedId })
+
+    const generatedId = options.id || (await createId())
+    const defaultDirectory = options.directory || './orbitdb'
+
+    let keystore: KeyStoreInstance
+    let identities: IdentitiesInstance
+
+    if (options.identities) {
+      identities = options.identities
+      keystore = identities.keystore
+    } else {
+      keystore = await KeyStore.create({
+        path: join(defaultDirectory, './keystore'),
+      })
+      identities = Identities.create({ ipfs: options.ipfs, keystore })({
+        ipfs: options.ipfs,
+        keystore,
+      })
+    }
+
+    let finalIdentity: IdentityInstance
+    if (options.identity) {
+      if (typeof options.identity.provider === 'function') {
+        finalIdentity = await identities.createIdentity({
+          id: options.identity.id,
+          provider: options.identity.provider,
+        })
+      } else {
+        finalIdentity = options.identity
+      }
+    } else {
+      finalIdentity = await identities.createIdentity({ id: generatedId })
+    }
+
+    const manifestStore = await ManifestStore.create({ ipfs: options.ipfs })
+
+    return new OrbitDB(
+      generatedId,
+      options.ipfs,
+      defaultDirectory,
+      keystore,
+      finalIdentity,
+      identities,
+      manifestStore,
+    )
   }
 
-  const manifestStore = await ManifestStore({ ipfs })
-  const databases: Record<string, DatabaseInstance<any>> = {}
-
-  const open = async <T, D extends keyof DatabaseTypeMap<T>>(
+  async open<T, D extends keyof DatabaseTypeMap<T>>(
     address: string,
-    {
-      type,
-      meta,
-      sync,
-      Database,
-      AccessController,
-
-      headsStorage,
-      entryStorage,
-      indexStorage,
-      referencesCount,
-    }: OrbitDBOpenOptions<T, D>,
-  ): Promise<DatabaseTypeMap<T>[D]> => {
+    options: OrbitDBOpenOptions<T, D>,
+  ): Promise<DatabaseTypeMap<T>[D]> {
     let name: string,
       manifest: Manifest | null,
       accessController: AccessControllerInstance,
       address_: string = address,
-      type_: D = type || (DATABASE_DEFAULT_TYPE as D),
-      meta_: any = meta
+      type_: D = options.type || (DATABASE_DEFAULT_TYPE as D),
+      meta_: any = options.meta
 
-    if (databases[address_!]) {
-      return databases[address_!] as DatabaseTypeMap<T>[D]
+    if (this.databases[address_!]) {
+      return this.databases[address_!] as DatabaseTypeMap<T>[D]
     }
 
     if (OrbitDBAddress.isValidAddress(address_)) {
-      const addr = new OrbitDBAddress(address_)
-      manifest = await manifestStore.get(addr.hash)
+      const addr = OrbitDBAddress.create(address_)
+      manifest = await this.manifestStore.get(addr.hash)
       if (!manifest) {
         throw new Error(`Manifest not found for address: ${address_}`)
       }
@@ -159,31 +178,26 @@ export const OrbitDB = async ({
       }
 
       accessController = await AccessControllerType({
-        // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
-        orbitdb: {
-          open,
-          identity: finalIdentity,
-          ipfs,
-        } as OrbitDBInstance,
-        identities: identities_,
+        orbitdb: this,
+        identities: this.identities,
         address: manifest.accessController,
       })
 
       name = manifest.name
-      type_ = type_ || manifest.type
+      type_ = type_ || (manifest.type as D)
       meta_ = meta_ || manifest.meta
     } else {
       type_ = type_ || (DATABASE_DEFAULT_TYPE as D)
-      const AccessControllerType = AccessController || DEFAULT_ACCESS_CONTROLLER
+      const AccessControllerType =
+        options.AccessController || DEFAULT_ACCESS_CONTROLLER
 
       accessController = await AccessControllerType({
-        // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
-        orbitdb: { open, identity: finalIdentity, ipfs } as OrbitDBInstance,
-        identities: identities_,
+        orbitdb: this,
+        identities: this.identities,
         name: address_,
       })
 
-      const m = await manifestStore.create({
+      const m = await this.manifestStore.create({
         name: address_,
         type: type_,
         accessController: accessController.address!,
@@ -196,75 +210,58 @@ export const OrbitDB = async ({
       name = manifest?.name || 'unknown'
 
       meta_ = meta_ || manifest?.meta
-      if (databases[address_!]) {
-        return databases[address_!] as DatabaseTypeMap<T>[D]
+      if (this.databases[address_!]) {
+        return this.databases[address_!] as DatabaseTypeMap<T>[D]
       }
     }
 
-    const DatabaseType = Database || getDatabaseType(type_!)
+    const DatabaseType = options.Database || getDatabaseType(type_)
 
     if (!DatabaseType) {
       throw new Error(`Unsupported database type: '${type_}'`)
     }
 
-    const db = await DatabaseType<T>({
-      ipfs,
-      identity: finalIdentity,
+    const db = await DatabaseType.create({
+      ipfs: this.ipfs,
+      identity: this.identity,
       address: address_,
       name,
       meta: meta_,
-      directory: defaultDirectory,
+      directory: this.directory,
       accessController,
-      syncAutomatically: sync,
-      headsStorage,
-      entryStorage,
-      indexStorage,
-      referencesCount,
+      syncAutomatically: options.sync,
+      headsStorage: options.headsStorage,
+      entryStorage: options.entryStorage,
+      indexStorage: options.indexStorage,
+      referencesCount: options.referencesCount,
     })
 
-    db.events.on('close', onDatabaseClosed(address_))
+    db.events.on('close', this.onDatabaseClosed(address_))
 
-    databases[address_!] = db
+    this.databases[address_!] = db
 
     return db as DatabaseTypeMap<T>[D]
   }
 
-  const onDatabaseClosed = (address: string) => (): void => {
-    delete databases[address!]
+  private onDatabaseClosed = (address: string) => (): void => {
+    delete this.databases[address!]
   }
 
-  /**
-   * Stops OrbitDB, closing the underlying keystore and manifest store.
-   * @function stop
-   * @memberof module:OrbitDB~OrbitDB
-   * @instance
-   * @async
-   */
-  const stop = async (): Promise<void> => {
-    for (const db of Object.values(databases)) {
+  async stop(): Promise<void> {
+    for (const db of Object.values(this.databases)) {
       await db.close()
     }
-    if (keystore) {
-      await keystore.close()
+    if (this.keystore) {
+      await this.keystore.close()
     }
-    if (manifestStore) {
-      await manifestStore.close()
+    if (this.manifestStore) {
+      await this.manifestStore.close()
     }
-    Object.keys(databases).forEach((key) => delete databases[key!])
-  }
 
-  const instance: OrbitDBInstance = {
-    id: generatedId,
-    open,
-    stop,
-    ipfs,
-    directory: defaultDirectory,
-    keystore,
-    identity: finalIdentity,
-    peerId,
+    Object.keys(this.databases).forEach((key) => {
+      delete this.databases[key!]
+    })
   }
-
-  return instance
 }
 
 export { OrbitDBAddress }

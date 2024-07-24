@@ -73,7 +73,7 @@ export class Entry<T = unknown> implements EntryInstance<T> {
       throw new Error("'next' argument is not an array")
     }
 
-    const clock_ = clock || Clock(identity.publicKey)
+    const clock_ = clock || new Clock(identity.publicKey)
     const entry = new Entry(id, payload, clock_, next, refs)
 
     const { bytes } = await Block.encode({ value: entry, codec, hasher })
@@ -161,7 +161,7 @@ export class Entry<T = unknown> implements EntryInstance<T> {
   async encode(): Promise<this> {
     const { cid, bytes } = await Block.encode({ value: this, codec, hasher })
     const hash = cid.toString(hashStringEncoding)
-    const clock = Clock(this.clock.id, this.clock.time)
+    const clock = new Clock(this.clock.id, this.clock.time)
 
     this.clock = clock
     this.hash = hash

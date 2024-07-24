@@ -1,18 +1,28 @@
-/* eslint-disable no-unused-vars */
 import {
   Documents,
+  DocumentsDatabase,
   type DocumentsInstance,
   type DocumentsOptions,
 } from './documents.js'
-import { Events, type EventsInstance, type EventsOptions } from './events.js'
+import {
+  Events,
+  EventsDatabase,
+  type EventsInstance,
+  type EventsOptions,
+} from './events.js'
 import {
   KeyValueIndexed,
+  KeyValueIndexedDatabase,
   type KeyValueIndexedInstance,
   type KeyValueIndexedOptions,
 } from './keyvalue-indexed.js'
-import { KeyValue, type KeyValueInstance } from './keyvalue.js'
+import {
+  KeyValue,
+  KeyValueDatabase,
+  type KeyValueInstance,
+} from './keyvalue.js'
 
-import type { DatabaseInstance, DatabaseOptions } from '../database.js'
+import type { DatabaseInstance } from '../database.js'
 
 export interface DatabaseOperation<T> {
   op: 'PUT' | 'DEL' | 'ADD'
@@ -20,27 +30,26 @@ export interface DatabaseOperation<T> {
   value: T | null
 }
 
-export type DatabaseType<K extends string = string> = {
-  type: K
-  create: <T = unknown>(
-    options: DatabaseOptions<T>,
-  ) => Promise<DatabaseInstance<T>>
-}
-export type DatabaseTypeMap<T = unknown> = {
-  events: EventsInstance<T>
-  documents: DocumentsInstance<T>
-  keyvalue: KeyValueInstance<T>
-  'keyvalue-indexed': KeyValueIndexedInstance<T>
+export interface DatabaseTypeMap {
+  events: EventsDatabase
+  documents: DocumentsDatabase
+  keyvalue: KeyValueDatabase
+  'keyvalue-indexed': KeyValueIndexedDatabase
 }
 
-const databaseTypes: Record<string, ReturnType<DatabaseType>> = {}
+export type DatabaseType<T = unknown> = {
+  type: string
+  create: (...args: any[]) => Promise<DatabaseInstance<T>>
+}
+
+const databaseTypes: Record<string, DatabaseType> = {}
 
 export const useDatabaseType = (database: DatabaseType) => {
   if (!database.type) {
     throw new Error("Database type does not contain required field 'type'.")
   }
 
-  databaseTypes[database.type] = database()
+  databaseTypes[database.type] = database
 }
 
 export const getDatabaseType = (type: string) => {
@@ -55,17 +64,18 @@ export const getDatabaseType = (type: string) => {
   return databaseTypes[type!]
 }
 
-useDatabaseType(Events)
-useDatabaseType(Documents)
-useDatabaseType(KeyValue)
+useDatabaseType(EventsDatabase)
+useDatabaseType(DocumentsDatabase)
+useDatabaseType(KeyValueDatabase)
+useDatabaseType(KeyValueIndexedDatabase)
 
+export { Documents, Events, KeyValue, KeyValueIndexed }
 export type {
   DocumentsInstance,
   DocumentsOptions,
-  EventsOptions,
   EventsInstance,
-  KeyValueInstance,
+  EventsOptions,
   KeyValueIndexedInstance,
   KeyValueIndexedOptions,
+  KeyValueInstance,
 }
-export { Documents, Events, KeyValue, KeyValueIndexed }

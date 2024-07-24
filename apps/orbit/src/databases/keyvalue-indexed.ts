@@ -102,15 +102,17 @@ export interface KeyValueIndexedOptions<T> {
 }
 
 export interface KeyValueIndexedInstance<T = unknown>
-  extends DatabaseInstance<T> {
-  type: 'keyvalue-indexed'
-}
+  extends DatabaseInstance<T> {}
 
 export class KeyValueIndexedDatabase<T = unknown>
   implements KeyValueIndexedInstance<T>
 {
   private keyValueStore: KeyValueInstance<T>
   private index: Index<T>
+
+  static get type(): 'keyvalue-indexed' {
+    return DATABASE_KEYVALUE_INDEXED_TYPE
+  }
 
   private constructor(keyValueStore: KeyValueInstance<T>, index: Index<T>) {
     this.keyValueStore = keyValueStore
@@ -158,10 +160,6 @@ export class KeyValueIndexedDatabase<T = unknown>
     })
 
     return new KeyValueIndexedDatabase(keyValueStore, index)
-  }
-
-  get type(): 'keyvalue-indexed' {
-    return DATABASE_KEYVALUE_INDEXED_TYPE
   }
 
   get name(): string | undefined {

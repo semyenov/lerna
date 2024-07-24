@@ -1,10 +1,9 @@
-/* eslint-disable no-unused-vars */
 import * as dagCbor from '@ipld/dag-cbor'
 import { base58btc } from 'multiformats/bases/base58'
 import * as Block from 'multiformats/block'
 import { sha256 } from 'multiformats/hashes/sha2'
 
-import { IPFS_CONTROLLER_TYPE } from '../constants.js'
+import { ACCESS_CONTROLLER_IPFS_TYPE } from '../constants.js'
 import {
   ComposedStorage,
   IPFSBlockStorage,
@@ -75,11 +74,11 @@ export const IPFSAccessController: AccessControllerType<
       write_ = value.write
     } else {
       address_ = await AccessControlList({
-        type: IPFS_CONTROLLER_TYPE,
+        type: ACCESS_CONTROLLER_IPFS_TYPE,
         storage: storage_,
         params: { write: write_ },
       })
-      address_ = join('/', IPFS_CONTROLLER_TYPE, address_)
+      address_ = join('/', ACCESS_CONTROLLER_IPFS_TYPE, address_)
     }
 
     const canAppend = async (entry: EntryInstance) => {
@@ -97,7 +96,7 @@ export const IPFSAccessController: AccessControllerType<
     }
 
     const accessController: IPFSAccessControllerInstance = {
-      type: IPFS_CONTROLLER_TYPE,
+      type: ACCESS_CONTROLLER_IPFS_TYPE,
       address: address_,
       write: write_,
       canAppend,
@@ -106,4 +105,4 @@ export const IPFSAccessController: AccessControllerType<
     return accessController
   }
 
-IPFSAccessController.type = IPFS_CONTROLLER_TYPE
+IPFSAccessController.type = ACCESS_CONTROLLER_IPFS_TYPE

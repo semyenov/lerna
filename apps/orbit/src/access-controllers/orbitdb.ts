@@ -1,10 +1,9 @@
-/* eslint-disable no-unused-vars */
 /**
  * @namespace AccessControllers-OrbitDB
  * @memberof module:AccessControllers
  */
 
-import { ORBITDB_CONTROLLER_TYPE } from '../constants.js'
+import { ACCESS_CONTROLLER_ORBITDB_TYPE } from '../constants.js'
 import { createId } from '../utils/index.js'
 
 import { IPFSAccessController } from './ipfs.js'
@@ -137,7 +136,7 @@ export const OrbitDBAccessController: AccessControllerType<
     }
 
     const accessController: OrbitDBAccessControllerInstance = {
-      type: ORBITDB_CONTROLLER_TYPE,
+      type: ACCESS_CONTROLLER_ORBITDB_TYPE,
       address: address_,
       write: write_,
       canAppend,
@@ -154,4 +153,4 @@ export const OrbitDBAccessController: AccessControllerType<
     return accessController
   }
 
-OrbitDBAccessController.type = ORBITDB_CONTROLLER_TYPE
+OrbitDBAccessController.type = ACCESS_CONTROLLER_ORBITDB_TYPE

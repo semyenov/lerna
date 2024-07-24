@@ -9,7 +9,7 @@ export class ComposedStorage<T> implements StorageInstance<T> {
   private storage1: StorageInstance<T>
   private storage2: StorageInstance<T>
 
-  public constructor(options: ComposedStorageOptions<T>) {
+  constructor(options: ComposedStorageOptions<T>) {
     this.storage1 = options.storage1
     this.storage2 = options.storage2
   }
