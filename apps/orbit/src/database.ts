@@ -28,6 +28,7 @@ import type {
 import type { EntryInstance } from './oplog/entry.js'
 import type { LogInstance } from './oplog/log.js'
 import type { HeliaInstance, PeerId } from './vendor.js'
+import type { PeerSet } from '@libp2p/peer-collections'
 
 export interface DatabaseOptions<T> {
   meta: any
@@ -68,7 +69,7 @@ export interface DatabaseInstance<T = unknown> {
   address?: string
   indexBy?: string
   type: string
-  peers: Set<PeerId>
+  peers: PeerSet
   meta: any
 
   log: LogInstance<DatabaseOperation<T>>

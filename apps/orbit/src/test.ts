@@ -59,6 +59,9 @@ const options: Libp2pOptions<{
   ],
   connectionEncryption: [noise()],
   streamMuxers: [yamux()],
+  connectionManager: {
+    maxPeerAddrsToDial: 1000,
+  },
   connectionGater: {
     denyDialMultiaddr: () => false,
   },
@@ -67,7 +70,7 @@ const options: Libp2pOptions<{
     circuitRelay: circuitRelayServer(),
     pubsub: gossipsub({
       allowPublishToZeroTopicPeers: true,
-    }),
+    }) as unknown as GossipSub,
   },
 }
 

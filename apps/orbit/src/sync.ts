@@ -1,6 +1,7 @@
 /* eslint-disable no-unused-vars */
 import { EventEmitter } from 'node:events'
 
+import { PeerSet } from '@libp2p/peer-collections'
 import { pipe } from 'it-pipe'
 import PQueue from 'p-queue'
 import { TimeoutController } from 'timeout-abort-controller'
@@ -43,7 +44,7 @@ export interface SyncOptions<T> {
 
 export interface SyncInstance<T> {
   events: SyncEvents<T>
-  peers: Set<PeerId>
+  peers: PeerSet
 
   start: () => Promise<void>
   stop: () => Promise<void>
@@ -72,7 +73,7 @@ export const Sync = async <T>({
   const headsSyncAddress = join(SYNC_PROTOCOL, address)
 
   const queue = new PQueue({ concurrency: 1 })
-  const peers: Set<PeerId> = new Set()
+  const peers: PeerSet = new PeerSet()
 
   let started = false
 
@@ -92,7 +93,7 @@ export const Sync = async <T>({
 
   const receiveHeads =
     (peerId: PeerId): Sink<AsyncIterable<Uint8ArrayList>, void> =>
-    async (source: AsyncIterable<Uint8ArrayList>) => {
+    async (source) => {
       for await (const value of source) {
         const headBytes = value.subarray()
         if (headBytes && onSynced) {
@@ -105,17 +106,12 @@ export const Sync = async <T>({
     }
 
   const handleReceiveHeads: StreamHandler = async ({ connection, stream }) => {
-    const peerId = String(connection.remotePeer)
+    const peerId = connection.remotePeer
     try {
-      peers.add(peerId as unknown as PeerId)
-      await pipe(
-        stream,
-        receiveHeads(peerId as unknown as PeerId),
-        sendHeads,
-        stream,
-      )
+      peers.add(peerId)
+      await pipe(stream, receiveHeads(peerId), sendHeads, stream)
     } catch (error) {
-      peers.delete(peerId as unknown as PeerId)
+      peers.delete(peerId)
       events.emit('error', error)
     }
   }
@@ -125,32 +121,28 @@ export const Sync = async <T>({
   > = async (event) => {
     const task = async () => {
       const { peerId: remotePeer, subscriptions } = event.detail
-      const peerId = String(remotePeer)
+      const peerId = remotePeer
       const subscription = subscriptions.find((e: any) => e.topic === address)
       if (!subscription) {
         return
       }
       if (subscription.subscribe) {
-        if (peers.has(peerId as unknown as PeerId)) {
+        if (peers.has(peerId)) {
           return
         }
         const timeoutController = new TimeoutController(timeout)
         const { signal } = timeoutController
         try {
-          peers.add(peerId as unknown as PeerId)
+          peers.add(peerId)
           const stream = await libp2p.dialProtocol(
             remotePeer,
             headsSyncAddress,
             { signal },
           )
-          await pipe(
-            sendHeads,
-            stream,
-            receiveHeads(peerId as unknown as PeerId),
-          )
+          await pipe(sendHeads, stream, receiveHeads(peerId))
         } catch (error: any) {
           console.error(error)
-          peers.delete(peerId as unknown as PeerId)
+          peers.delete(peerId)
           if (error.code === 'ERR_UNSUPPORTED_PROTOCOL') {
             // Skip peer, they don't have this database currently
           } else {
@@ -162,8 +154,8 @@ export const Sync = async <T>({
           }
         }
       } else {
-        peers.delete(peerId as unknown as PeerId)
-        events.emit('leave', peerId as unknown as PeerId)
+        peers.delete(peerId)
+        events.emit('leave', peerId)
       }
     }
     queue.add(task)
@@ -181,6 +173,7 @@ export const Sync = async <T>({
           await onSynced(detail.from as PeerId, [await Entry.decode(data)])
         }
       } catch (error) {
+        console.error('error', error)
         events.emit('error', error)
       }
     }
