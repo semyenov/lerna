@@ -29,7 +29,16 @@ export const LevelStorage = async <T = unknown>({
       await level.del(hash)
     },
     get: async (hash: string) => {
-      return level.get(hash)
+      try {
+        const value = await level.get(hash)
+        if (value) {
+          return value
+        }
+      } catch {
+        return null
+      }
+
+      return null
     },
     async *iterator(options: LevelIteratorOptions<string, T> = {}) {
       for await (const [key, value] of level.iterator(options)) {

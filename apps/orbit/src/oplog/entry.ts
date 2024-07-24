@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 import * as dagCbor from '@ipld/dag-cbor'
 import { base58btc } from 'multiformats/bases/base58'
 import * as Block from 'multiformats/block'
@@ -15,13 +16,13 @@ export interface EntryInstance<T = unknown> {
   id: string
   payload: T
   next: string[]
+  refs: string[]
   clock: ClockInstance
   v: number
 
   key?: string
   hash?: string
   identity?: string
-  refs?: string[]
   bytes?: Uint8Array
   sig?: string
 }
@@ -31,7 +32,7 @@ async function create<T>(
   payload: T,
   clock?: ClockInstance,
   next?: Array<string>,
-  refs?: Array<string>,
+  refs: Array<string> = [],
 ): Promise<EntryInstance<T>> {
   if (!identity) {
     throw new Error('Identity is required, cannot create entry')
@@ -109,7 +110,7 @@ export async function verify<T>(
   return identities.verify!(entry.sig, entry.key, bytes)
 }
 
-const isEntry = (obj: any): boolean => {
+const isEntry = (obj: any): obj is EntryInstance => {
   return (
     obj &&
     obj.id !== undefined &&

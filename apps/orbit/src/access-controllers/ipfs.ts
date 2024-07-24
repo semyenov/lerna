@@ -1,8 +1,10 @@
+/* eslint-disable no-unused-vars */
 import * as dagCbor from '@ipld/dag-cbor'
 import { base58btc } from 'multiformats/bases/base58'
 import * as Block from 'multiformats/block'
 import { sha256 } from 'multiformats/hashes/sha2'
 
+import { IPFS_CONTROLLER_TYPE } from '../constants.js'
 import {
   ComposedStorage,
   IPFSBlockStorage,
@@ -37,8 +39,6 @@ const AccessControlList = async ({
   return hash
 }
 
-const CONTROLLER_TYPE = 'ipfs'
-
 export interface IPFSAccessControllerInstance extends AccessControllerInstance {
   type: string
   address: string
@@ -63,8 +63,10 @@ export const IPFSAccessController: AccessControllerType<
         storage2: await IPFSBlockStorage({ ipfs: orbitdb.ipfs, pin: true }),
       }))
 
-    if (address) {
-      const manifestBytes = await storage_.get(address.replaceAll('/ipfs/', ''))
+    if (address_) {
+      const manifestBytes = await storage_.get(
+        address_.replaceAll('/ipfs/', ''),
+      )
       const { value } = await Block.decode<{ write: string[] }, 113, 18>({
         bytes: manifestBytes!,
         codec,
@@ -73,11 +75,11 @@ export const IPFSAccessController: AccessControllerType<
       write_ = value.write
     } else {
       address_ = await AccessControlList({
-        type: CONTROLLER_TYPE,
+        type: IPFS_CONTROLLER_TYPE,
         storage: storage_,
         params: { write: write_ },
       })
-      address_ = join('/', CONTROLLER_TYPE, address_)
+      address_ = join('/', IPFS_CONTROLLER_TYPE, address_)
     }
 
     const canAppend = async (entry: EntryInstance) => {
@@ -95,8 +97,8 @@ export const IPFSAccessController: AccessControllerType<
     }
 
     const accessController: IPFSAccessControllerInstance = {
-      type: CONTROLLER_TYPE,
-      address: address_!,
+      type: IPFS_CONTROLLER_TYPE,
+      address: address_,
       write: write_,
       canAppend,
     }
@@ -104,4 +106,4 @@ export const IPFSAccessController: AccessControllerType<
     return accessController
   }
 
-IPFSAccessController.type = CONTROLLER_TYPE
+IPFSAccessController.type = IPFS_CONTROLLER_TYPE

@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 import {
   KeyStore,
   type KeyStoreInstance,
@@ -140,9 +141,8 @@ export const Identities = async (
       }
 
       const { id, publicKey, signatures } = identity
-
       const idSignatureVerified = await (async (signature, publicKey, data) => {
-        return await verifyMessage(signature, publicKey, data)
+        return verifyMessage(signature, publicKey, data)
       })(signatures.id, publicKey, id)
       if (!idSignatureVerified) {
         return false

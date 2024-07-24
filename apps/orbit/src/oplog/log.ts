@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 /* eslint-disable unused-imports/no-unused-vars */
 
 // @ts-ignore
@@ -85,6 +86,7 @@ const DEFAULT_ACCESS_CONTROLLER =
   async (): Promise<AccessControllerInstance> => {
     // An AccessController may do any async initialization stuff here...
     return {
+      type: 'allow-all',
       write: [],
       canAppend: async (_entry: EntryInstance<any>) => true,
     }
@@ -335,11 +337,6 @@ export const Log = async <T>(
     await storage.close()
   }
 
-  /**
-   * TODO
-   * @memberof module:Log~Log
-   * @instance
-   */
   async function* traverse(
     rootEntries?: EntryInstance<T>[] | null,
     shouldStopFn: (
@@ -547,7 +544,7 @@ export const Log = async <T>(
   }
 }
 
-const isLog = (obj: any): obj is LogInstance<any> => {
+const isLog = <T = unknown>(obj: any): obj is LogInstance<T> => {
   return (
     obj &&
     obj.id !== undefined &&

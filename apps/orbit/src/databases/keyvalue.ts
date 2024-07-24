@@ -1,3 +1,5 @@
+/* eslint-disable no-unused-vars */
+import { KEYVALUE_DATABASE_TYPE } from '../constants'
 import {
   Database,
   type DatabaseInstance,
@@ -11,8 +13,6 @@ import type { EntryInstance } from '../oplog'
 import type { LogInstance } from '../oplog/log'
 import type { StorageInstance } from '../storage'
 import type { HeliaInstance } from '../vendor'
-
-const type = 'keyvalue'
 
 export interface KeyValueDatabaseOptions<T = unknown>
   extends DatabaseOptions<T> {
@@ -116,7 +116,8 @@ export const KeyValue: DatabaseType<'keyvalue'> =
 
     const instance: KeyValueInstance<T> = {
       ...database,
-      type,
+
+      type: KEYVALUE_DATABASE_TYPE,
       put,
       set: put,
       del,
@@ -128,4 +129,4 @@ export const KeyValue: DatabaseType<'keyvalue'> =
     return instance
   }
 
-KeyValue.type = type
+KeyValue.type = KEYVALUE_DATABASE_TYPE

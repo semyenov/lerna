@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 import { PublicKeyIdentityProvider } from './publickey.js'
 
 import type { KeyStoreInstance } from '../../key-store.js'

@@ -1,3 +1,5 @@
+/* eslint-disable no-unused-vars */
+import { DOCUMENTS_DATABASE_TYPE } from '../constants.js'
 import {
   Database,
   type DatabaseInstance,
@@ -5,8 +7,6 @@ import {
 } from '../database.js'
 
 import type { DatabaseType } from './index.js'
-
-const type = 'documents'
 
 export interface DocumentsDoc<T = unknown> {
   key?: string
@@ -211,7 +211,8 @@ export const Documents: DatabaseType<'documents'> = () => {
 
     return {
       ...database,
-      type,
+
+      type: DOCUMENTS_DATABASE_TYPE,
       put,
       del,
       get,
@@ -223,4 +224,4 @@ export const Documents: DatabaseType<'documents'> = () => {
   }
 }
 
-Documents.type = type
+Documents.type = DOCUMENTS_DATABASE_TYPE

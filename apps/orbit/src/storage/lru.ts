@@ -33,7 +33,7 @@ export const LRUStorage = async <T>({
       return lru.get(hash) || null
     },
     async *iterator() {
-      for await (const key of lru.keys()) {
+      for await (const key of lru.keys) {
         const value = lru.get(key)
         yield [key, value] as [string, T]
       }

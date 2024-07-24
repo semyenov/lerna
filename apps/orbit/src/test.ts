@@ -1,9 +1,15 @@
 import { type GossipSub, gossipsub } from '@chainsafe/libp2p-gossipsub'
+import { noise } from '@chainsafe/libp2p-noise'
 import { yamux } from '@chainsafe/libp2p-yamux'
 import { bitswap } from '@helia/block-brokers'
-import { type Identify, identify } from '@libp2p/identify'
+import {
+  circuitRelayServer,
+  circuitRelayTransport,
+} from '@libp2p/circuit-relay-v2'
+import { identify } from '@libp2p/identify'
 import { mdns } from '@libp2p/mdns'
 import { tcp } from '@libp2p/tcp'
+import { webRTC } from '@libp2p/webrtc'
 import { webSockets } from '@libp2p/websockets'
 import { all } from '@libp2p/websockets/filters'
 import { createLogger } from '@regioni/lib/logger'
@@ -13,10 +19,6 @@ import { type Libp2pOptions, createLibp2p } from 'libp2p'
 
 import { createOrbitDB } from './index.js'
 
-import type { ServiceMap } from '@libp2p/interface'
-
-export type Options<T extends ServiceMap = ServiceMap> = Libp2pOptions<T>
-
 const logger = createLogger({
   defaultMeta: {
     service: 'orbitdb',
@@ -25,8 +27,7 @@ const logger = createLogger({
 })
 
 const directory = './orbitdb'
-const options: Options<{
-  identify: Identify
+const options: Libp2pOptions<{
   pubsub: GossipSub
 }> = {
   addresses: {
@@ -50,19 +51,28 @@ const options: Options<{
     },
   },
   peerDiscovery: [mdns()],
-  transports: [tcp(), webSockets({ filter: all })],
+  transports: [
+    tcp(),
+    webRTC(),
+    webSockets({ filter: all }),
+    circuitRelayTransport(),
+  ],
+  connectionEncryption: [noise()],
   streamMuxers: [yamux()],
-
+  connectionGater: {
+    denyDialMultiaddr: () => false,
+  },
   services: {
     identify: identify(),
+    circuitRelay: circuitRelayServer(),
     pubsub: gossipsub({
-      allowPublishToZeroTopicPeers: true,
+      allowPublishToZeroPeers: true,
     }),
   },
 }
 
 const main = async () => {
-  const ipfs = await createHelia<Options>({
+  const ipfs = await createHelia({
     libp2p: await createLibp2p({ ...options }),
     blockstore: new LevelBlockstore(`${directory}/ipfs/blocks`),
     blockBrokers: [bitswap()],
@@ -73,13 +83,18 @@ const main = async () => {
     ipfs,
   })
 
-  const db = await orbit.open<{ test: string }, 'documents'>('test')
-
+  const db = await orbit.open<{ _id: string; test: string }, 'documents'>(
+    'test',
+    {
+      type: 'documents',
+    },
+  )
   db.events.on('update', (entry) => {
     console.log(entry)
   })
 
-  db.put({ test: 'test' })
+  console.log(db)
+  db.put({ _id: 'test', test: 'test' })
 
   const result = await db.get('test')
   console.log(result)

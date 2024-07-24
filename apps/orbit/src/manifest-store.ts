@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 import * as dagCbor from '@ipld/dag-cbor'
 import { base58btc } from 'multiformats/bases/base58'
 import * as Block from 'multiformats/block'
@@ -13,18 +14,18 @@ import {
 import type { DatabaseTypeMap } from './databases/index.js'
 import type { HeliaInstance } from './vendor.js'
 
-interface Manifest {
+export interface Manifest {
   name: string
   type: keyof DatabaseTypeMap<any>
   accessController: string
   meta?: any
 }
 
-interface ManifestStoreOptions {
+export interface ManifestStoreOptions {
   ipfs?: HeliaInstance
   storage?: StorageInstance<Uint8Array>
 }
-interface ManifestStoreInstance {
+export interface ManifestStoreInstance {
   get: (address: string) => Promise<Manifest | null>
   create: (manifest: Manifest) => Promise<{ hash: string; manifest: Manifest }>
   close: () => Promise<void>
@@ -38,16 +39,16 @@ export const ManifestStore = async ({
   ipfs,
   storage,
 }: ManifestStoreOptions = {}) => {
-  const db =
+  const storage_ =
     storage ||
     (await ComposedStorage<Uint8Array>({
       storage1: await LRUStorage<Uint8Array>({ size: 1000 }),
       storage2: await IPFSBlockStorage<Uint8Array>({ ipfs, pin: true }),
     }))
 
-  const manifestStore: ManifestStoreInstance = {
+  const instance: ManifestStoreInstance = {
     get: async (address) => {
-      const bytes = await db.get(address)
+      const bytes = await storage_.get(address)
       if (!bytes) {
         return null
       }
@@ -85,8 +86,9 @@ export const ManifestStore = async ({
         codec,
         hasher,
       })
+
       const hash = cid.toString(hashStringEncoding)
-      await db.put(hash, bytes)
+      await storage_.put(hash, bytes)
 
       return {
         hash,
@@ -94,9 +96,9 @@ export const ManifestStore = async ({
       }
     },
     close: async () => {
-      await db.close()
+      await storage_.close()
     },
   }
 
-  return manifestStore
+  return instance
 }

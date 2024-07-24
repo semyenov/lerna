@@ -11,7 +11,7 @@ import type { LRUStorageInstance, LRUStorageOptions } from './lru.js'
 import type { MemoryStorageInstance, MemoryStorageOptions } from './memory.js'
 import type { StorageInstance } from './types.js'
 
-interface StorageTypeMap<T> {
+interface StorageTypeMap<T = unknown> {
   composed: StorageInstance<T>
   ipfs: IPFSBlockStorageInstance<T>
   lru: LRUStorageInstance<T>
@@ -19,7 +19,7 @@ interface StorageTypeMap<T> {
   memory: MemoryStorageInstance<T>
 }
 
-type StorageType = keyof StorageTypeMap<unknown>
+type StorageType = keyof StorageTypeMap
 
 export { ComposedStorage } from './composed.js'
 export { IPFSBlockStorage } from './ipfs-block.js'

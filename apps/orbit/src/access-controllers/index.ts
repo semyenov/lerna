@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 import {
   IPFSAccessController,
   type IPFSAccessControllerInstance,
@@ -25,8 +26,9 @@ export interface AccessControllerOptions {
 }
 
 export interface AccessControllerInstance {
-  address?: string
+  type: string
   write: string[]
+  address?: string
 
   canAppend: (entry: EntryInstance) => Promise<boolean>
   close?: () => Promise<void>
@@ -42,6 +44,7 @@ export type AccessControllerType<
     options: CreateAccessControllerOptions,
   ): (options: AccessControllerOptions) => Promise<U>
 }
+
 export type AccessControllerTypeMap = {
   ipfs: IPFSAccessControllerInstance
   orbitdb: OrbitDBAccessControllerInstance

@@ -1,8 +1,10 @@
+/* eslint-disable no-unused-vars */
 import * as crypto from '@libp2p/crypto'
 import { compare as uint8ArrayCompare } from 'uint8arrays/compare'
 import { fromString as uint8ArrayFromString } from 'uint8arrays/from-string'
 import { toString as uint8ArrayToString } from 'uint8arrays/to-string'
 
+import { KEYSTORE_PATH } from './constants.js'
 import { ComposedStorage, LRUStorage, LevelStorage } from './storage/index.js'
 
 import type { StorageInstance } from './storage'
@@ -27,29 +29,33 @@ export abstract class KeyStoreInstance {
   abstract close: () => Promise<void>
 }
 
-const DEFAULT_PATH = './keystore'
-const VERIFIED_CACHE = LRUStorage<{ publicKey: string; data: string }>({
+const VERIFIED_CACHE_STORAGE = LRUStorage<{
+  publicKey: string
+  data: string
+}>({
   size: 1000,
 })
 
-export const KeyStore = async (
-  { storage, path }: { path: string; storage?: StorageInstance<Uint8Array> } = {
-    path: DEFAULT_PATH,
-  },
-) => {
-  const db: StorageInstance<Uint8Array> =
+export const KeyStore = async ({
+  storage,
+  path = KEYSTORE_PATH,
+}: {
+  path: string
+  storage?: StorageInstance<Uint8Array>
+}) => {
+  const storage_: StorageInstance<Uint8Array> =
     storage ||
     (await ComposedStorage<Uint8Array>({
       storage1: await LRUStorage<Uint8Array>({ size: 1000 }),
       storage2: await LevelStorage<Uint8Array>({ path }),
     }))
 
-  const keyStore: KeyStoreInstance = {
+  const instance: KeyStoreInstance = {
     clear: async () => {
-      await db.clear()
+      await storage_.clear()
     },
     close: async () => {
-      await db.close()
+      await storage_.close()
     },
     hasKey: async (id) => {
       if (!id) {
@@ -58,7 +64,7 @@ export const KeyStore = async (
 
       let hasKey = false
       try {
-        const storedKey = await db.get(`private_${id}`)
+        const storedKey = await storage_.get(`private_${id}`)
         hasKey = storedKey !== undefined && storedKey !== null
       } catch {
         // Catches 'Error: ENOENT: no such file or directory, open <path>'
@@ -68,7 +74,7 @@ export const KeyStore = async (
       return hasKey
     },
     addKey: async (id, key) => {
-      await db.put(`private_${id}`, key.marshal())
+      await storage_.put(`private_${id}`, key.marshal())
     },
     createKey: async (id) => {
       if (!id) {
@@ -76,7 +82,7 @@ export const KeyStore = async (
       }
 
       const keys = await crypto.keys.generateKeyPair('secp256k1')
-      await db.put(`private_${id}`, keys.marshal())
+      await storage_.put(`private_${id}`, keys.marshal())
 
       return keys
     },
@@ -85,7 +91,7 @@ export const KeyStore = async (
         throw new Error('id needed to get a key')
       }
 
-      const storedKey = await db.get(`private_${id}`)
+      const storedKey = await storage_.get(`private_${id}`)
       if (!storedKey) {
         return Promise.resolve(null)
       }
@@ -97,18 +103,18 @@ export const KeyStore = async (
         throw new Error('keys needed to get a public key')
       }
 
-      return keys.public.marshal().toString()
+      return uint8ArrayToString(keys.public.marshal(), 'base16')
     },
     removeKey: async (id) => {
       if (!id) {
         throw new Error('id needed to remove a key')
       }
 
-      await db.del(`private_${id}`)
+      await storage_.del(`private_${id}`)
     },
   }
 
-  return keyStore
+  return instance
 }
 
 const unmarshal =
@@ -172,7 +178,7 @@ export async function verifyMessage(
   publicKey: string,
   data: string,
 ): Promise<boolean> {
-  const verifiedCache = await VERIFIED_CACHE
+  const verifiedCache = await VERIFIED_CACHE_STORAGE
   const cached = await verifiedCache.get(signature)
   if (!cached) {
     const verified = await verifySignature(signature, publicKey, data)

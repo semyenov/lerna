@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 import { compareClocks } from './clock.js'
 
 import type { EntryInstance } from './entry.js'

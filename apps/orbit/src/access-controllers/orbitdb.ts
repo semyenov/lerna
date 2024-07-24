@@ -1,8 +1,10 @@
+/* eslint-disable no-unused-vars */
 /**
  * @namespace AccessControllers-OrbitDB
  * @memberof module:AccessControllers
  */
 
+import { ORBITDB_CONTROLLER_TYPE } from '../constants.js'
 import { createId } from '../utils/index.js'
 
 import { IPFSAccessController } from './ipfs.js'
@@ -10,8 +12,6 @@ import { IPFSAccessController } from './ipfs.js'
 import type { AccessControllerInstance, AccessControllerType } from './index.js'
 import type { DatabaseEvents } from '../database.js'
 import type { EntryInstance } from '../oplog/entry.js'
-
-const CONTROLLER_TYPE = 'orbitdb'
 
 export interface OrbitDBAccessControllerInstance
   extends AccessControllerInstance {
@@ -137,7 +137,7 @@ export const OrbitDBAccessController: AccessControllerType<
     }
 
     const accessController: OrbitDBAccessControllerInstance = {
-      type: CONTROLLER_TYPE,
+      type: ORBITDB_CONTROLLER_TYPE,
       address: address_,
       write: write_,
       canAppend,
@@ -154,4 +154,4 @@ export const OrbitDBAccessController: AccessControllerType<
     return accessController
   }
 
-OrbitDBAccessController.type = CONTROLLER_TYPE
+OrbitDBAccessController.type = ORBITDB_CONTROLLER_TYPE

@@ -1,6 +1,6 @@
 import type { StorageInstance } from './types'
 
-export interface MemoryStorageOptions {}
+export type MemoryStorageOptions = Record<never, never>
 export interface MemoryStorageInstance<T> extends StorageInstance<T> {}
 
 export const MemoryStorage = async <T = unknown>(): Promise<

@@ -1,14 +1,17 @@
-import { EventEmitter } from 'events'
+/* eslint-disable no-unused-vars */
+import { EventEmitter } from 'node:events'
 
 import { pipe } from 'it-pipe'
 import PQueue from 'p-queue'
 import { TimeoutController } from 'timeout-abort-controller'
 
+import { SYNC_HEADS_PATH, SYNC_TIMEOUT } from './constants'
 import { join } from './utils'
 
 import type { EntryInstance } from './oplog/entry.js'
 import type { LogInstance } from './oplog/log'
 import type { HeliaInstance, PeerId } from './vendor'
+import type { StreamHandler } from '@libp2p/interface'
 import type { Sink } from 'it-stream-types'
 import type { Uint8ArrayList } from 'uint8arraylist'
 
@@ -41,15 +44,13 @@ export interface SyncInstance<T> {
   add: (entry: EntryInstance<T>) => Promise<void>
 }
 
-const DEFAULT_TIMEOUT = 30000 // 30 seconds
-
 export const Sync = async <T>({
   ipfs,
   log,
   events = new EventEmitter() as SyncEvents<T>,
   onSynced,
   start,
-  timeout = DEFAULT_TIMEOUT,
+  timeout = SYNC_TIMEOUT,
 }: SyncOptions<T>): Promise<SyncInstance<T>> => {
   if (!ipfs) {
     throw new Error('An instance of ipfs is required.')
@@ -62,10 +63,8 @@ export const Sync = async <T>({
   const pubsub = ipfs.libp2p.services.pubsub
 
   const address = log.id
-  const headsSyncAddress = join('/orbitdb/heads/', address)
-
+  const headsSyncAddress = join(SYNC_HEADS_PATH, address)
   const queue = new PQueue({ concurrency: 1 })
-
   const peers: Set<PeerId> = new Set()
 
   let started = false
@@ -98,13 +97,7 @@ export const Sync = async <T>({
       }
     }
 
-  const handleReceiveHeads = async ({
-    connection,
-    stream,
-  }: {
-    connection: any
-    stream: any
-  }) => {
+  const handleReceiveHeads: StreamHandler = async ({ connection, stream }) => {
     const peerId = String(connection.remotePeer)
     try {
       peers.add(peerId as unknown as PeerId)
@@ -187,52 +180,53 @@ export const Sync = async <T>({
     }
   }
 
-  const add = async (entry: EntryInstance<T>) => {
-    if (started) {
-      await pubsub.publish(address, entry.bytes!)
-    }
-  }
-
-  const stopSync = async () => {
-    if (started) {
-      started = false
-      await queue.onIdle()
-      pubsub.removeEventListener('subscription-change', handlePeerSubscribed)
-      pubsub.removeEventListener('message', handleUpdateMessage)
-      await libp2p.unhandle(headsSyncAddress)
-      await pubsub.unsubscribe(address)
-      peers.clear()
-    }
-  }
-
-  /**
-   * Start the Sync Protocol.
-   * @function start
-   * @memberof module:Sync~Sync
-   * @instance
-   */
-  const startSync = async () => {
-    if (!started) {
-      // Exchange head entries with peers when connected
-      await libp2p.handle(headsSyncAddress, handleReceiveHeads)
-      pubsub.addEventListener('subscription-change', handlePeerSubscribed)
-      pubsub.addEventListener('message', handleUpdateMessage)
-      // Subscribe to the pubsub channel for this database through which updates are sent
-      await pubsub.subscribe(address)
-      started = true
-    }
-  }
-
   // Start Sync automatically
   if (start !== false) {
-    await startSync()
+    await (async () => {
+      if (!started) {
+        // Exchange head entries with peers when connected
+        await libp2p.handle(headsSyncAddress, handleReceiveHeads)
+        pubsub.addEventListener('subscription-change', handlePeerSubscribed)
+        pubsub.addEventListener('message', handleUpdateMessage)
+        // Subscribe to the pubsub channel for this database through which updates are sent
+        await Promise.resolve(pubsub.subscribe(address))
+        started = true
+      }
+    })()
   }
 
-  return {
-    add,
-    stop: stopSync,
-    start: startSync,
+  const instance: SyncInstance<T> = {
+    add: async (entry: EntryInstance<T>) => {
+      if (started) {
+        await pubsub.publish(address, entry.bytes!)
+      }
+    },
+    stop: async () => {
+      if (started) {
+        started = false
+        await queue.onIdle()
+        pubsub.removeEventListener('subscription-change', handlePeerSubscribed)
+        pubsub.removeEventListener('message', handleUpdateMessage)
+        await libp2p.unhandle(headsSyncAddress)
+        await Promise.resolve(pubsub.unsubscribe(address))
+        peers.clear()
+      }
+    },
+    start: async () => {
+      if (!started) {
+        // Exchange head entries with peers when connected
+        await libp2p.handle(headsSyncAddress, handleReceiveHeads)
+        pubsub.addEventListener('subscription-change', handlePeerSubscribed)
+        pubsub.addEventListener('message', handleUpdateMessage)
+        // Subscribe to the pubsub channel for this database through which updates are sent
+        await Promise.resolve(pubsub.subscribe(address))
+        started = true
+      }
+    },
+
     events,
     peers,
   }
+
+  return instance
 }

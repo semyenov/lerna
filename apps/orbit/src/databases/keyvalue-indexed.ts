@@ -1,3 +1,4 @@
+import { KEYVALUE_INDEXED_DATABASE_TYPE } from '../constants.js'
 import { LevelStorage } from '../storage/level.js'
 import { join } from '../utils'
 
@@ -10,7 +11,6 @@ import type { LogInstance } from '../oplog/log.js'
 import type { StorageInstance } from '../storage/index.js'
 
 const valueEncoding = 'json'
-const type = 'keyvalue-indexed'
 
 export const Index =
   <T>({ directory }: { directory?: string } = {}) =>
@@ -192,7 +192,8 @@ export const KeyValueIndexed: DatabaseType<'keyvalue-indexed'> = () => {
 
     return {
       ...keyValueStore,
-      type,
+
+      type: KEYVALUE_INDEXED_DATABASE_TYPE,
       get,
       iterator,
       close,
@@ -201,4 +202,4 @@ export const KeyValueIndexed: DatabaseType<'keyvalue-indexed'> = () => {
   }
 }
 
-KeyValueIndexed.type = type
+KeyValueIndexed.type = KEYVALUE_INDEXED_DATABASE_TYPE

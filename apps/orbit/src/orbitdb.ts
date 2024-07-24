@@ -1,10 +1,13 @@
+/* eslint-disable no-unused-vars */
 import {
   type AccessControllerInstance,
   type AccessControllerType,
-  IPFSAccessController,
+  type AccessControllerTypeMap,
   getAccessController,
 } from './access-controllers/index.js'
+import { IPFSAccessController } from './access-controllers/ipfs.js'
 import { OrbitDBAddress, isValidAddress } from './address.js'
+import { DEFAULT_DATABASE_TYPE } from './constants.js'
 import {
   type DatabaseType,
   type DatabaseTypeMap,
@@ -16,10 +19,11 @@ import {
   type IdentityInstance,
 } from './identities/index.js'
 import { KeyStore, type KeyStoreInstance } from './key-store.js'
-import { ManifestStore } from './manifest-store.js'
+import { type Manifest, ManifestStore } from './manifest-store.js'
 import { join } from './utils'
 import { createId } from './utils/index.js'
 
+import type { DatabaseInstance } from './database.js'
 import type { StorageInstance } from './storage/index.js'
 import type { HeliaInstance, PeerId } from './vendor.js'
 
@@ -30,7 +34,9 @@ export interface OrbitDBOpenOptions<T, D extends keyof DatabaseTypeMap<T>> {
   referencesCount?: number
 
   Database?: ReturnType<DatabaseType>
-  AccessController?: ReturnType<AccessControllerType<string, any>>
+  AccessController?: ReturnType<
+    AccessControllerType<string, AccessControllerInstance>
+  >
 
   headsStorage?: StorageInstance<T>
   entryStorage?: StorageInstance<T>
@@ -60,9 +66,7 @@ export interface OrbitDBInstance {
   stop: () => Promise<void>
 }
 
-const DEFAULT_DATABASE_TYPE = 'events'
-
-const DEFAULT_ACCESS_CONTROLLER = IPFSAccessController
+const DEFAULT_ACCESS_CONTROLLER = IPFSAccessController({})
 
 export const OrbitDB = async ({
   ipfs,
@@ -110,7 +114,7 @@ export const OrbitDB = async ({
   }
 
   const manifestStore = await ManifestStore({ ipfs })
-  const databases: Record<string, any> = {}
+  const databases: Record<string, DatabaseInstance> = {}
 
   const open = async <T, D extends keyof DatabaseTypeMap<T>>(
     address: string,
@@ -127,7 +131,7 @@ export const OrbitDB = async ({
     }: OrbitDBOpenOptions<T, D> = {},
   ): Promise<DatabaseTypeMap<T>[D]> => {
     let name: string,
-      manifest: any,
+      manifest: Manifest | null,
       accessController: AccessControllerInstance,
       address_: string = address,
       type_: D = type!,
@@ -140,8 +144,19 @@ export const OrbitDB = async ({
     if (isValidAddress(address_)) {
       const addr = OrbitDBAddress(address_)
       manifest = await manifestStore.get(addr.hash)
-      const acType = manifest.accessController.split('/', 2).pop()
+      if (!manifest) {
+        throw new Error(`Manifest not found for address: ${address_}`)
+      }
+
+      const acType = manifest.accessController
+        .split('/', 2)
+        .pop()! as keyof AccessControllerTypeMap
+
       const AccessControllerType = getAccessController(acType)({})
+      if (!AccessControllerType) {
+        throw new Error(`Unsupported access controller type: '${acType}'`)
+      }
+
       accessController = await AccessControllerType({
         // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
         orbitdb: {
@@ -158,21 +173,26 @@ export const OrbitDB = async ({
     } else {
       type_ = type_ || DEFAULT_DATABASE_TYPE
       const AccessControllerType = AccessController || DEFAULT_ACCESS_CONTROLLER
+
       accessController = await AccessControllerType({
         // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
         orbitdb: { open, identity: finalIdentity, ipfs } as OrbitDBInstance,
         identities: identities_,
         name: address_,
       })
+
       const m = await manifestStore.create({
         name: address_,
         type: type_,
         accessController: accessController.address!,
         meta: meta_,
       })
+
       manifest = m.manifest
       address_ = m.hash
+
       name = manifest.name
+
       meta_ = meta_ || manifest.meta
       if (databases[address_!]) {
         return databases[address_!] as DatabaseTypeMap<T>[D]
