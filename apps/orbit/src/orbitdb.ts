@@ -1,14 +1,10 @@
-/**
- * @module OrbitDB
- * @description Provides an interface for users to interact with OrbitDB.
- */
 import { getAccessController } from './access-controllers/index.js'
 import IPFSAccessController from './access-controllers/ipfs.js'
-import OrbitDBAddress, { isValidAddress } from './address.js'
+import { OrbitDBAddress, isValidAddress } from './address.js'
 import { getDatabaseType } from './databases/index.js'
 import { Identities } from './identities/index.js'
-import KeyStore from './key-store.js'
-import ManifestStore from './manifest-store.js'
+import { KeyStore } from './key-store.js'
+import { ManifestStore } from './manifest-store.js'
 import { createId } from './utils/index.js'
 import pathJoin from './utils/path-join.js'
 
@@ -16,20 +12,6 @@ const DefaultDatabaseType = 'events'
 
 const DefaultAccessController = IPFSAccessController
 
-/**
- * Creates an instance of OrbitDB.
- * @function createOrbitDB
- * @param {Object} params One or more parameters for configuring OrbitDB.
- * @param {IPFS} params.ipfs An IPFS instance.
- * @param {string} [params.id] The id of the identity to use for this OrbitDB instance.
- * @param {module:Identity|Object} [params.identity] An identity instance or an object containing an Identity Provider instance and any additional params required to create the identity using the specified provider.
- * @param {Function} [params.identity.provider] An initialized identity provider.
- * @param {module:Identities} [params.identities] An Identities system instance.
- * @param {string} [params.directory] A location for storing OrbitDB data.
- * @return {module:OrbitDB~OrbitDB} An instance of OrbitDB.
- * @throws "IPFS instance is required argument" if no IPFS instance is provided.
- * @instance
- */
 const OrbitDB = async ({ ipfs, id, identity, identities, directory } = {}) => {
   /**
    * @namespace module:OrbitDB~OrbitDB
@@ -54,7 +36,7 @@ const OrbitDB = async ({ ipfs, id, identity, identities, directory } = {}) => {
   }
 
   if (identity) {
-    if (identity.provider) {
+    if (typeof identity.provider === 'function') {
       identity = await identities.createIdentity({ ...identity })
     }
   } else {
@@ -65,53 +47,6 @@ const OrbitDB = async ({ ipfs, id, identity, identities, directory } = {}) => {
 
   let databases = {}
 
-  /**
-   * Open a database or create one if it does not already exist.
-   *
-   * By default, OrbitDB will create a database of type [DefaultDatabaseType]{@link module:OrbitDB~DefaultDatabaseType}:
-   * ```
-   * const mydb = await orbitdb.open('mydb')
-   * ```
-   * To create a database of a different type, specify the type param:
-   * ```
-   * const mydb = await orbitdb.open('mydb', {type: 'documents'})
-   * ```
-   * The type must be listed in [databaseTypes]{@link module:OrbitDB.databaseTypes} or an error is thrown.
-   * To open an existing database, pass its address to the `open` function:
-   * ```
-   * const existingDB = await orbitdb.open(dbAddress)
-   * ```
-   * The address of a newly created database can be retrieved using
-   * `db.address`.
-   * @function
-   * @param {string} address The address of an existing database to open, or
-   * the name of a new database.
-   * @param {Object} params One or more database configuration parameters.
-   * @param {string} [params.type=events] The database's type.
-   * @param {*} [params.meta={}] The database's metadata. Only applies when
-   * creating a database and is not used when opening an existing database.
-   * @param {boolean} [params.sync=true] If true, sync databases automatically.
-   * Otherwise, false.
-   * @param {module:Database} [params.Database=[Events]{@link module:Database.Database-Events}] A Database-compatible
-   * module.
-   * @param {module:AccessControllers}
-   * [params.AccessController=[IPFSAccessController]{@link module:AccessControllers.AccessControllers-IPFS}]
-   * An AccessController-compatible module.
-   * @param {module:Storage} [params.headsStorage=[ComposedStorage]{@link module:Storage.Storage-Composed}] A compatible storage instance for storing
-   * log heads. Defaults to ComposedStorage(LRUStorage, LevelStorage).
-   * @param {module:Storage} [params.entryStorage=[ComposedStorage]{@link module:Storage.Storage-Composed}] A compatible storage instance for storing
-   * log entries. Defaults to ComposedStorage(LRUStorage, IPFSBlockStorage).
-   * @param {module:Storage} [params.indexStorage=[ComposedStorage]{@link module:Storage.Storage-Composed}] A compatible storage instance for storing an " index of log entries. Defaults to ComposedStorage(LRUStorage, LevelStorage).
-   * @param {number} [params.referencesCount] The number of references to
-   * use for [Log]{@link module:Log} entries.
-   * @memberof module:OrbitDB
-   * @return {module:Database} A database instance.
-   * @throws "Unsupported database type" if the type specified is not in the list
-   * of known databaseTypes.
-   * @memberof module:OrbitDB~OrbitDB
-   * @instance
-   * @async
-   */
   const open = async (
     address,
     {

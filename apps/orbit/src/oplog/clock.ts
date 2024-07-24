@@ -3,7 +3,7 @@ export interface ClockInstance {
   time: number
 }
 
-export const Clock = (id: string, time: number) => {
+export const Clock = (id: string, time?: number) => {
   return {
     id,
     time: time || 0,

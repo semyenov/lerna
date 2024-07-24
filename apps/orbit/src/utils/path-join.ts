@@ -14,5 +14,3 @@ export function win32Join(...paths: string[]) {
 }
 
 export const join = posixJoin
-
-export default posixJoin

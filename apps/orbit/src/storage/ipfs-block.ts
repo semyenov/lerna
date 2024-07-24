@@ -1,9 +1,3 @@
-/**
- * @namespace Storage-IPFS
- * @memberof module:Storage
- * @description
- * IPFSBlockStorage uses IPFS to store data as raw blocks.
- */
 import drain from 'it-drain'
 import { base58btc } from 'multiformats/bases/base58'
 import { CID } from 'multiformats/cid'

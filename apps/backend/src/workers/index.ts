@@ -13,7 +13,7 @@ const worker = new Worker<{ message: string }, { status: number }>(
       throw new Error(`No one likes ${job.data.message}s`)
     }
 
-    if (Number.parseInt(job.id || '0') % 5 === 0) {
+    if (Number.parseInt(job.id || '0', 10) % 5 === 0) {
       await sleep(1000)
     }
 

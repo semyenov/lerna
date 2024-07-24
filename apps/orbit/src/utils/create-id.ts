@@ -1,4 +1,4 @@
-async function createId(length = 32) {
+export async function createId(length = 32) {
   const characters =
     'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
   let result = ''
@@ -9,5 +9,3 @@ async function createId(length = 32) {
   }
   return result
 }
-
-export default createId

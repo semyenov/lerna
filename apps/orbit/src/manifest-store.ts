@@ -1,4 +1,3 @@
-/* eslint-disable no-unused-vars */
 import * as dagCbor from '@ipld/dag-cbor'
 import { base58btc } from 'multiformats/bases/base58'
 import * as Block from 'multiformats/block'

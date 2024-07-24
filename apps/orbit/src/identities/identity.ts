@@ -1,4 +1,3 @@
-/* eslint-disable no-unused-vars */
 import * as dagCbor from '@ipld/dag-cbor'
 import { base58btc } from 'multiformats/bases/base58'
 import * as Block from 'multiformats/block'
@@ -13,6 +12,7 @@ export interface IdentityOptions {
   sign?: (data: any) => Promise<string>
   verify?: (data: any, signature: string) => Promise<boolean>
 }
+
 export interface IdentityInstance extends IdentityOptions {
   hash: string
   bytes: Uint8Array

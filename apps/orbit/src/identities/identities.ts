@@ -1,13 +1,5 @@
-/* eslint-disable no-unused-vars */
-/**
- * @module Identities
- * @description
- * Identities provides a framework for generating and managing identity
- * details and providers.
- */
-// import DIDIdentityProvider from './identity-providers/did.js'
-// import EthIdentityProvider from './identity-providers/ethereum.js'
-import KeyStore, {
+import {
+  KeyStore,
   type KeyStoreInstance,
   signMessage,
   verifyMessage,
@@ -17,8 +9,8 @@ import {
   IPFSBlockStorage,
   LRUStorage,
   type StorageInstance,
-} from '../storage/index.js'
-import pathJoin from '../utils/path-join.js'
+} from '../storage'
+import { join } from '../utils'
 
 import {
   Identity,
@@ -27,9 +19,8 @@ import {
   isEqual,
   isIdentity,
 } from './identity.js'
-import { getIdentityProvider } from './providers/index.js'
+import { type IdentityProviderInstance, getIdentityProvider } from './providers'
 
-import type { IdentityProviderInstance } from './types.js'
 import type { HeliaInstance } from '../vendor.js'
 
 interface IdentitiesCreateIdentityOptions {
@@ -48,7 +39,7 @@ export interface IdentitiesInstance {
   createIdentity: (
     options?: IdentitiesCreateIdentityOptions,
   ) => Promise<IdentityInstance>
-  getIdentity: (id: string) => Promise<IdentityInstance>
+  getIdentity: (id: string) => Promise<IdentityInstance | null>
   verifyIdentity: (identity: IdentityInstance) => Promise<boolean>
   keystore: KeyStoreInstance
   sign: (
@@ -62,7 +53,7 @@ export interface IdentitiesInstance {
   ) => Promise<boolean>
 }
 
-const DEFAULT_KEYS_PATH = pathJoin('./orbitdb', 'identities')
+const DEFAULT_KEYS_PATH = join('./orbitdb', 'identities')
 
 export const Identities = async (
   { keystore, path, storage, ipfs }: IdentitiesOptions = {
@@ -76,25 +67,27 @@ export const Identities = async (
 
   const keys = keystore || (await KeyStore({ path: path || DEFAULT_KEYS_PATH }))
 
-  const db = storage
+  const db: StorageInstance<Uint8Array> = storage
     ? storage
     : await ComposedStorage({
         storage1: await LRUStorage({ size: 1000 }),
         storage2: await IPFSBlockStorage({ ipfs, pin: true }),
       })
 
-  const verifiedIdentitiesCache = await LRUStorage({ size: 1000 })
+  const verifiedIdentitiesCache = await LRUStorage<IdentityInstance>({
+    size: 1000,
+  })
 
   const identities: IdentitiesInstance = {
     keystore: keys,
 
-    createIdentity: async (options = {}) => {
-      options.keystore = keys
+    createIdentity: async (options: IdentitiesCreateIdentityOptions = {}) => {
       const DefaultIdentityProvider = getIdentityProvider('publickey')
       const identityProviderInit =
         options.provider || DefaultIdentityProvider({ keystore: keys })
 
-      const identityProvider = await identityProviderInit()
+      const identityProvider: IdentityProviderInstance =
+        await identityProviderInit()
 
       if (!getIdentityProvider(identityProvider.type)) {
         throw new Error(
@@ -102,13 +95,15 @@ export const Identities = async (
         )
       }
 
-      const id = await identityProvider.getId(options)
+      const id = await identityProvider.getId({
+        id: options.id!,
+      })
       const privateKey = (await keys.getKey(id)) || (await keys.createKey(id))
       const publicKey = keys.getPublic(privateKey)
       const idSignature = await signMessage(privateKey, id)
       const publicKeyAndIdSignature = await identityProvider.signIdentity(
         publicKey + idSignature,
-        options,
+        { id: options.id! },
       )
       const signatures = {
         id: idSignature,
@@ -120,8 +115,8 @@ export const Identities = async (
         publicKey,
         signatures,
         type: identityProvider.type,
-        sign: async (identity, data) => {
-          const signingKey = await keys.getKey(identity.id)
+        sign: async (data: string) => {
+          const signingKey = await keys.getKey(id)
 
           if (!signingKey) {
             throw new Error('Private signing key not found from KeyStore')
@@ -129,7 +124,7 @@ export const Identities = async (
 
           return await signMessage(signingKey, data)
         },
-        verify: async (signature, publicKey, data) => {
+        verify: async (signature: string, data: string) => {
           return await verifyMessage(signature, publicKey, data)
         },
       })
@@ -171,6 +166,8 @@ export const Identities = async (
       if (bytes) {
         return decodeIdentity(bytes)
       }
+
+      return null
     },
     sign: async (identity, data) => {
       const signingKey = await keys.getKey(identity.id)

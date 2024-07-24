@@ -1,58 +1,56 @@
-/**
- * @namespace module:Log~Heads
- * @memberof module:Log
- * @description The log's heads.
- * @private
- */
+import { MemoryStorage, type StorageInstance } from '../storage'
 
-import { MemoryStorage } from '../storage/index.js'
+import { Entry, type EntryInstance } from './entry'
 
-import Entry from './entry.js'
+export const Heads = async <T>({
+  storage,
+  heads,
+}: {
+  storage?: StorageInstance<Uint8Array>
+  heads?: EntryInstance<T>[]
+}) => {
+  const storage_: StorageInstance<Uint8Array> =
+    storage || (await MemoryStorage<Uint8Array>())
 
-const DefaultStorage = MemoryStorage
-
-const Heads = async ({ storage, heads }) => {
-  storage = storage || (await DefaultStorage())
-
-  const put = async (heads) => {
-    heads = findHeads(heads)
-    for (const head of heads) {
-      await storage.put(head.hash, head.bytes)
+  const put = async (heads: EntryInstance<T>[]) => {
+    const heads_ = findHeads<T>(heads)
+    for (const head of heads_) {
+      await storage_.put(head.hash!, head.bytes!)
     }
   }
 
-  const set = async (heads) => {
-    await storage.clear()
+  const set = async (heads: EntryInstance<T>[]) => {
+    await storage_.clear()
     await put(heads)
   }
 
-  const add = async (head) => {
+  const add = async (head: EntryInstance<T>) => {
     const currentHeads = await all()
-    if (currentHeads.find((e) => Entry.isEqual(e, head))) {
+    if (currentHeads.some((e) => Entry.isEqual(e, head))) {
       return
     }
-    const newHeads = findHeads([...currentHeads, head])
+    const newHeads = findHeads<T>([...currentHeads, head])
     await set(newHeads)
 
     return newHeads
   }
 
-  const remove = async (hash) => {
+  const remove = async (hash: string) => {
     const currentHeads = await all()
     const newHeads = currentHeads.filter((e) => e.hash !== hash)
     await set(newHeads)
   }
 
   const iterator = async function* () {
-    const it = storage.iterator()
+    const it = storage_.iterator()
     for await (const [, bytes] of it) {
-      const head = await Entry.decode(bytes)
+      const head = await Entry.decode<T>(bytes)
       yield head
     }
   }
 
   const all = async () => {
-    const values = []
+    const values: EntryInstance<T>[] = []
     for await (const head of iterator()) {
       values.push(head)
     }
@@ -60,11 +58,11 @@ const Heads = async ({ storage, heads }) => {
   }
 
   const clear = async () => {
-    await storage.clear()
+    await storage_.clear()
   }
 
   const close = async () => {
-    await storage.close()
+    await storage_.close()
   }
 
   // Initialize the heads if given as parameter
@@ -82,35 +80,21 @@ const Heads = async ({ storage, heads }) => {
   }
 }
 
-/**
- * Find heads from a collection of entries.
- *
- * Finds entries that are the heads of this collection,
- * ie. entries that are not referenced by other entries.
- *
- * This function is private and not exposed in the Log API
- *
- * @param {Array<Entry>} entries Entries to search heads from
- * @return {Array<Entry>}
- * @private
- */
-const findHeads = (entries) => {
-  entries = new Set(entries)
-  const items = {}
-  for (const entry of entries) {
-    for (const next of entry.next) {
-      items[next] = entry.hash
+const findHeads = <T>(entries: EntryInstance<T>[]) => {
+  const entries_ = new Set(entries)
+  const items: Record<string, string> = {}
+  for (const entry of entries_) {
+    for (const next of entry.next!) {
+      items[next!] = entry.hash!
     }
   }
 
-  const res = []
+  const res: EntryInstance<T>[] = []
   for (const entry of entries) {
-    if (!items[entry.hash]) {
+    if (!items[entry.hash!]) {
       res.push(entry)
     }
   }
 
   return res
 }
-
-export default Heads

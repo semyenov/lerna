@@ -1,7 +1,7 @@
 export type { IdentitiesInstance, IdentitiesOptions } from './identities.js'
 export { Identities } from './identities.js'
 
-export type { IdentityInstance, IdentityOptions } from './types.js'
+export type { IdentityInstance, IdentityOptions } from './identity.js'
 export { Identity, isIdentity, isEqual } from './identity.js'
 
 export {

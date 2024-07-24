@@ -1,181 +1,133 @@
-/* eslint-disable no-unused-vars */
+/* eslint-disable unused-imports/no-unused-vars */
+
 // @ts-ignore
 import LRU from 'lru'
 import PQueue from 'p-queue'
 
 import { MemoryStorage } from '../storage/memory.js'
 
-import { Clock, tickClock } from './clock.js'
-import ConflictResolution from './conflict-resolution.js'
-import Heads from './heads.js'
-import { Entry } from './types.js'
+import { Clock, type ClockInstance, tickClock } from './clock.js'
+import * as ConflictResolution from './conflict-resolution.js'
+import { Entry, type EntryInstance } from './entry.js'
+import { Heads } from './heads.js'
 
 import type { AccessControllerInstance } from '../access-controllers/index.js'
 import type { IdentityInstance } from '../identities/index.js'
 import type { StorageInstance } from '../storage'
 
-interface LogIteratorOptions {
+export interface LogIteratorOptions {
   gt?: string
   gte?: string
   lt?: string
   lte?: string
   amount?: number
 }
-interface LogAppendOptions {
+export interface LogAppendOptions {
   referencesCount: number
 }
-interface LogOptions<T> {
+export interface LogOptions<T> {
   logId?: string
-  logHeads?: Entry.Instance<T>[]
-  access?: AccessControllerInstance
-  entries?: Entry.Instance<T>[]
-  entryStorage?: StorageInstance<any>
-  headsStorage?: StorageInstance<any>
-  indexStorage?: StorageInstance<any>
-  sortFn?: (a: Entry.Instance<T>, b: Entry.Instance<T>) => number
+  logHeads?: EntryInstance<T>[]
+  accessController?: AccessControllerInstance
+  entries?: EntryInstance<T>[]
+
+  entryStorage?: StorageInstance<Uint8Array>
+  headsStorage?: StorageInstance<Uint8Array>
+  indexStorage?: StorageInstance<boolean>
+
+  sortFn?: (a: EntryInstance<T>, b: EntryInstance<T>) => number
 }
-interface LogInstance<T> {
+
+export interface LogInstance<T> {
   id: string
 
   access?: AccessControllerInstance
   identity: IdentityInstance
-  storage: StorageInstance<T>
+  storage: StorageInstance<Uint8Array>
 
-  clock: () => Promise<typeof Clock>
-  heads: () => Promise<Entry.Instance<T>[]>
-  values: () => Promise<Entry.Instance<T>[]>
-  all: () => Promise<Entry.Instance<T>[]>
-  get: (hash: string) => Promise<Entry.Instance<T> | undefined>
+  clock: () => Promise<ClockInstance>
+  heads: () => Promise<EntryInstance<T>[]>
+  values: () => Promise<EntryInstance<T>[]>
+  all: () => Promise<EntryInstance<T>[]>
+  get: (hash: string) => Promise<EntryInstance<T> | null>
   has: (hash: string) => Promise<boolean>
-  append: (payload: T, options?: LogAppendOptions) => Promise<Entry.Instance<T>>
+  append: (payload: T, options?: LogAppendOptions) => Promise<EntryInstance<T>>
   join: (log: LogInstance<T>) => Promise<void>
-  joinEntry: (entry: Entry.Instance<T>) => Promise<void>
-  traverse: () => AsyncGenerator<Entry.Instance<T>>
-  iterator: (options?: LogIteratorOptions) => AsyncIterable<Entry.Instance<T>>
+  joinEntry: (entry: EntryInstance<T>) => Promise<void>
+  traverse: (
+    rootEntries?: EntryInstance<T>[] | null,
+    shouldStopFn?: (
+      entry: EntryInstance<T>,
+      useRefs?: boolean,
+    ) => Promise<boolean>,
+    useRefs?: boolean,
+  ) => AsyncGenerator<EntryInstance<T>>
+  iterator: (options: LogIteratorOptions) => AsyncIterable<EntryInstance<T>>
   clear: () => Promise<void>
   close: () => Promise<void>
 }
 
 const { LastWriteWins, NoZeroes } = ConflictResolution
 
-const randomId = () => Date.now().toString()
-const maxClockTimeReducer = (res, acc) => Math.max(res, acc.clock.time)
-
-// Default storage for storing the Log and its entries. Default: Memory. Options: Memory, LRU, IPFS.
-const DefaultStorage = MemoryStorage
-
-// Default AccessController for the Log.
-// Default policy is that anyone can write to the Log.
-// Signature of an entry will always be verified regardless of AccessController policy.
-// Any object that implements the function `canAppend()` that returns true|false can be
-// used as an AccessController.
-const DefaultAccessController = async () => {
-  // An AccessController may do any async initialization stuff here...
-  return {
-    canAppend: async (entry) => true,
-  }
+function randomId() {
+  return Date.now().toString()
+}
+function maxClockTimeReducer(res: number, acc: EntryInstance<any>) {
+  return Math.max(res, acc.clock.time)
 }
 
-/**
- * Create a new Log instance
+const DEFAULT_STORAGE = MemoryStorage
+const DEFAULT_STOP_FN = (a: EntryInstance, b: EntryInstance) =>
+  Promise.resolve(false)
+const DEFAULT_ACCESS_CONTROLLER =
+  async (): Promise<AccessControllerInstance> => {
+    // An AccessController may do any async initialization stuff here...
+    return {
+      canAppend: async (entry: EntryInstance<any>) => true,
+    }
+  }
 
- * @function
- * @param {IPFS} ipfs An IPFS instance
- * @param {Object} identity Identity.
- * @param {Object} options
- * @param {string} options.logId ID of the log
- * @param {Array<Entry>} options.logHeads Set the heads of the log
- * @param {Object} options.access AccessController (./default-access-controller)
- * @param {Array<Entry>} options.entries An Array of Entries from which to create the log
- * @param {module:Storage} [options.entryStorage] A compatible storage instance
- * for storing log entries. Defaults to MemoryStorage.
- * @param {module:Storage} [options.headsStorage] A compatible storage
- * instance for storing log heads. Defaults to MemoryStorage.
- * @param {module:Storage} [options.indexStorage] A compatible storage
- * instance for storing an index of log entries. Defaults to MemoryStorage.
- * @param {Function} options.sortFn The sort function - by default LastWriteWins
- * @return {module:Log~Log} sync An instance of Log
- * @memberof module:Log
- * @instance
- */
-
-// (
-//   ipfs: HeliaInstance,
-//   identity: IdentityInstance,
-//   options?: LogOptions<T>,
-// ): Promise<LogInstance<T>>
-const Log = async (
-  identity,
+export const Log = async <T>(
+  identity: IdentityInstance,
   {
     logId,
     logHeads,
-    access,
+    accessController: access,
     entryStorage,
     headsStorage,
     indexStorage,
     sortFn,
-  } = {},
-) => {
-  /**
-   * @namespace Log
-   * @description The instance returned by {@link module:Log}
-   */
-
-  if (identity == null) {
+  }: LogOptions<T> = {},
+): Promise<LogInstance<T>> => {
+  if (!identity) {
     throw new Error('Identity is required')
   }
-  if (logHeads != null && !Array.isArray(logHeads)) {
+  if (logHeads && !Array.isArray(logHeads)) {
     throw new Error("'logHeads' argument must be an array")
   }
   // Set Log's id
   const id = logId || randomId()
   // Access Controller
-  access = access || (await DefaultAccessController())
+  const accessController_ = access || (await DEFAULT_ACCESS_CONTROLLER())
   // Oplog entry storage
-  const _entries = entryStorage || (await DefaultStorage())
+  const storage = entryStorage || (await DEFAULT_STORAGE())
   // Entry index for keeping track which entries are already in the log
-  const _index = indexStorage || (await DefaultStorage())
+  const indexStorage_ = indexStorage || (await DEFAULT_STORAGE())
   // Heads storage
-  headsStorage = headsStorage || (await DefaultStorage())
+  const headsStorage_ = headsStorage || (await DEFAULT_STORAGE())
   // Add heads to the state storage, ie. init the log state
-  const _heads = await Heads({ storage: headsStorage, heads: logHeads })
+  const heads_ = await Heads({ storage: headsStorage_, heads: logHeads })
   // Conflict-resolution sorting function
-  sortFn = NoZeroes(sortFn || LastWriteWins)
+  const sortFn_ = NoZeroes(sortFn! || LastWriteWins)
   // Internal queues for processing appends and joins in their call-order
   const appendQueue = new PQueue({ concurrency: 1 })
   const joinQueue = new PQueue({ concurrency: 1 })
 
-  /**
-   * Returns the clock of the log.
-   * @return {module:Clock}
-   * @memberof module:Log~Log
-   * @instance
-   */
-  const clock = async () => {
-    // Find the latest clock from the heads
-    const maxTime = Math.max(0, (await heads()).reduce(maxClockTimeReducer, 0))
-    return Clock(identity.publicKey, maxTime)
-  }
-
-  /**
-   * Returns the current heads of the log
-   *
-   * @return {Array<module:Log~Entry>}
-   * @memberof module:Log~Log
-   * @instance
-   */
   const heads = async () => {
-    const res = await _heads.all()
-    return res.sort(sortFn).reverse()
+    const res = await heads_.all()
+    return res.sort(sortFn_).reverse()
   }
 
-  /**
-   * Returns all entries in the log
-   *
-   * @return {Array<module:Log~Entry>}
-   * @memberof module:Log~Log
-   * @instance
-   */
   const values = async () => {
     const values = []
     for await (const entry of traverse()) {
@@ -184,64 +136,62 @@ const Log = async (
     return values
   }
 
-  /**
-   * Retrieve an entry
-   *
-   * @param {string} hash The hash of the entry to retrieve
-   * @return {module:Log~Entry}
-   * @memberof module:Log~Log
-   * @instance
-   */
-  const get = async (hash) => {
-    const bytes = await _entries.get(hash)
+  const get = async (hash: string): Promise<EntryInstance<T> | null> => {
+    const bytes = await storage.get(hash)
     if (bytes) {
-      const entry = await Entry.decode(bytes)
+      const entry = await Entry.decode<T>(bytes)
       return entry
     }
+
+    return null
   }
 
-  const has = async (hash) => {
-    const entry = await _index.get(hash)
-    return entry != null
+  const has = async (hash: string) => {
+    const entry = await indexStorage_.get(hash)
+    if (entry === undefined) {
+      return false
+    }
+
+    return true
   }
 
-  /**
-   * Append an new entry to the log
-   *
-   * @param {data} data Payload to add to the entry
-   * @param {Object} options
-   * @param {number} options.referencesCount TODO
-   * @return {module:Log~Entry} Entry that was appended
-   * @memberof module:Log~Log
-   * @instance
-   */
-  const append = async (data, options = { referencesCount: 0 }) => {
+  const append = async (
+    data: T,
+    options = { referencesCount: 0 },
+  ): Promise<EntryInstance<T>> => {
     const task = async () => {
       // 1. Prepare entry
       // 2. Authorize entry
       // 3. Store entry
       // 4. return Entry
       // Get current heads of the log
-      const heads_ = await heads()
+      const headsEntries = await heads()
       // Create the next pointers from heads
-      const nexts = heads_.map((entry) => entry.hash)
+      const next_ = headsEntries.map((entry) => entry)
       // Get references (pointers) to multiple entries in the past
       // (skips the heads which are covered by the next field)
-      const refs = await getReferences(
-        heads_,
-        options.referencesCount + heads_.length,
+      const refs_ = await getReferences(
+        next_,
+        options.referencesCount + headsEntries.length,
       )
       // Create the entry
-      const entry = await Entry.create(
+      const entry = await Entry.create<T>(
         identity,
         id,
         data,
-        tickClock(await clock()),
-        nexts,
-        refs,
+        tickClock(
+          await (async () => {
+            const _heads = await heads()
+            const maxTime = Math.max(0, _heads.reduce(maxClockTimeReducer, 0))
+
+            return Clock(identity.publicKey, maxTime)
+          })(),
+        ),
+        next_.map((n) => n.id),
+        refs_,
       )
       // Authorize the entry
-      const canAppend = await access.canAppend(entry)
+      const canAppend = await accessController_.canAppend(entry)
       if (!canAppend) {
         throw new Error(
           `Could not append entry:\nKey "${identity.hash}" is not allowed to write to the log`,
@@ -249,41 +199,27 @@ const Log = async (
       }
 
       // The appended entry is now the latest head
-      await _heads.set([entry])
+      await heads_.set([entry])
       // Add entry to the entry storage
-      await _entries.put(entry.hash, entry.bytes)
+      await storage.put(entry.hash!, entry.bytes!)
       // Add entry to the entry index
-      await _index.put(entry.hash, true)
+      await indexStorage_.put(entry.hash!, true)
       // Return the appended entry
       return entry
     }
 
-    return appendQueue.add(task)
+    return appendQueue.add(task) as Promise<EntryInstance<T>>
   }
 
-  /**
-   * Join two logs.
-   *
-   * Joins another log into this one.
-   *
-   * @param {module:Log~Log} log Log to join with this Log
-   *
-   * @example
-   *
-   * await log1.join(log2)
-   *
-   * @memberof module:Log~Log
-   * @instance
-   */
-  const join = async (log) => {
+  const join = async (log: LogInstance<T>) => {
     if (!log) {
       throw new Error('Log instance not defined')
     }
     if (!isLog(log)) {
       throw new Error('Given argument is not an instance of Log')
     }
-    if (_entries.merge) {
-      await _entries.merge(log.storage)
+    if (storage.merge) {
+      await storage.merge(log.storage)
     }
     const heads = await log.heads()
     for (const entry of heads) {
@@ -291,35 +227,23 @@ const Log = async (
     }
   }
 
-  /**
-   * Join an entry into a log.
-   *
-   * @param {module:Log~Entry} entry Entry to join with this Log
-   *
-   * @example
-   *
-   * await log.joinEntry(entry)
-   *
-   * @memberof module:Log~Log
-   * @instance
-   */
-  const joinEntry = async (entry) => {
+  const joinEntry = async (entry: EntryInstance<T>) => {
     const task = async () => {
       /* 1. Check if the entry is already in the log and return early if it is */
-      const isAlreadyInTheLog = await has(entry.hash)
+      const isAlreadyInTheLog = await has(entry.hash!)
       if (isAlreadyInTheLog) {
-        return false
+        return
       }
 
-      const verifyEntry = async (entry) => {
+      const verifyEntry = async (entry: EntryInstance<T>) => {
         // Check that the Entry belongs to this Log
         if (entry.id !== id) {
           throw new Error(
             `Entry's id (${entry.id}) doesn't match the log's id (${id}).`,
           )
         }
-        // Verify if entry is allowed to be added to the log
-        const canAppend = await access.canAppend(entry)
+
+        const canAppend = await accessController_.canAppend(entry)
         if (!canAppend) {
           throw new Error(
             `Could not append entry:\nKey "${entry.identity}" is not allowed to write to the log`,
@@ -340,21 +264,26 @@ const Log = async (
       /* 3. Find missing entries and connections (=path in the DAG) to the current heads */
       const headsHashes = (await heads()).map((e) => e.hash)
       const hashesToAdd = new Set([entry.hash])
-      const hashesToGet = new Set([...entry.next, ...entry.refs])
-      const connectedHeads = new Set()
+      const hashesToGet = new Set([
+        ...(entry.next ?? []),
+        ...(entry.refs ?? []),
+      ])
+      const connectedHeads = new Set<string>()
 
       const traverseAndVerify = async () => {
         const getEntries = Array.from(hashesToGet.values()).filter(has).map(get)
         const entries = await Promise.all(getEntries)
 
-        for (const e of entries) {
-          hashesToGet.delete(e.hash)
+        for (const e of entries!) {
+          if (!e) {
+            continue
+          }
 
+          hashesToGet.delete(e.hash!)
           await verifyEntry(e)
-
           hashesToAdd.add(e.hash)
 
-          for (const hash of [...e.next, ...e.refs]) {
+          for (const hash of [...(e.next ?? []), ...(e.refs ?? [])]) {
             const isInTheLog = await has(hash)
 
             if (!isInTheLog && !hashesToAdd.has(hash)) {
@@ -374,21 +303,33 @@ const Log = async (
 
       /* 4. Add missing entries to the index (=to the log) */
       for (const hash of hashesToAdd.values()) {
-        await _index.put(hash, true)
+        await indexStorage_.put(hash!, true)
       }
 
       /* 5. Remove heads which new entries are connect to */
       for (const hash of connectedHeads.values()) {
-        await _heads.remove(hash)
+        await heads_.remove(hash!)
       }
 
       /* 6. Add the new entry to heads (=union with current heads) */
-      await _heads.add(entry)
+      await heads_.add(entry)
 
-      return true
+      return
     }
 
     return joinQueue.add(task)
+  }
+
+  const clear = async () => {
+    await indexStorage_.clear()
+    await headsStorage_.clear()
+    await storage.clear()
+  }
+
+  const close = async () => {
+    await indexStorage_.close()
+    await headsStorage_.close()
+    await storage.close()
   }
 
   /**
@@ -396,67 +337,77 @@ const Log = async (
    * @memberof module:Log~Log
    * @instance
    */
-  const traverse = async function* (rootEntries, shouldStopFn, useRefs = true) {
+  async function* traverse(
+    rootEntries?: EntryInstance<T>[] | null,
+    shouldStopFn: (
+      entry: EntryInstance<T>,
+      useRefs: boolean,
+    ) => Promise<boolean> = async () => false,
+    useRefs: boolean = true,
+  ) {
     // By default, we don't stop traversal and traverse
     // until the end of the log
-    const defaultStopFn = () => false
-    shouldStopFn = shouldStopFn || defaultStopFn
     // Start traversal from given entries or from current heads
-    rootEntries = rootEntries || (await heads())
+    const rootEntries_ = rootEntries || (await heads())
     // Sort the given given root entries and use as the starting stack
-    let stack = rootEntries.sort(sortFn)
+    let stack = rootEntries_.sort(sortFn_)
     // Keep a record of all the hashes of entries we've traversed and yielded
-    const traversed = {}
+    const traversed: Record<string, boolean> = {}
     // Keep a record of all the hashes we are fetching or have already fetched
-    let toFetch = []
-    const fetched = {}
+    let toFetch: string[] = []
+    const fetched: Record<string, boolean> = {}
     // A function to check if we've seen a hash
-    const notIndexed = (hash) => !(traversed[hash] || fetched[hash])
+    const notIndexed = (hash: string) => !(traversed[hash!] || fetched[hash!])
     // Current entry during traversal
-    let entry
+    let entry: EntryInstance<T>
     // Start traversal and process stack until it's empty (traversed the full log)
     while (stack.length > 0) {
-      stack = stack.sort(sortFn)
+      stack = stack.sort(sortFn_)
       // Get the next entry from the stack
-      entry = stack.pop()
+      entry = stack.pop()!
       if (entry) {
         const { hash, next, refs } = entry
         // If we have an entry that we haven't traversed yet, process it
-        if (!traversed[hash]) {
+        if (!traversed[hash!]) {
           // Yield the current entry
           yield entry
           // If we should stop traversing, stop here
-          const done = await shouldStopFn(entry)
+          const done = await shouldStopFn(entry, useRefs)
           if (done === true) {
             break
           }
           // Add to the hash indices
-          traversed[hash] = true
-          fetched[hash] = true
+          traversed[hash!] = true
+          fetched[hash!] = true
           // Add the next and refs hashes to the list of hashes to fetch next,
           // filter out traversed and fetched hashes
-          toFetch = [...toFetch, ...next, ...(useRefs ? refs : [])].filter(
+          toFetch = [...toFetch, ...next!, ...(useRefs ? refs! : [])].filter(
             notIndexed,
           )
           // Function to fetch an entry and making sure it's not a duplicate (check the hash indices)
-          const fetchEntries = (hash) => {
-            if (!traversed[hash] && !fetched[hash]) {
-              fetched[hash] = true
+          const fetchEntries = (hash: string) => {
+            if (!traversed[hash!] && !fetched[hash!]) {
+              fetched[hash!] = true
               return get(hash)
             }
           }
           // Fetch the next/reference entries
-          const nexts = await Promise.all(toFetch.map(fetchEntries))
+          const nexts = (await Promise.all(toFetch.map(fetchEntries))).filter(
+            (e) => e !== null && e !== undefined,
+          )
 
           // Add the next and refs fields from the fetched entries to the next round
           toFetch = nexts
-            .filter((e) => e !== null && e !== undefined)
             .reduce(
               (res, acc) =>
                 Array.from(
-                  new Set([...res, ...acc.next, ...(useRefs ? acc.refs : [])]),
+                  new Set([
+                    ...res,
+                    ...acc.next!,
+                    ...(useRefs ? acc.refs! : []),
+                  ]),
                 ),
-              [],
+              [] as string[],
             )
             .filter(notIndexed)
           // Add the fetched entries to the stack to be processed
@@ -466,70 +417,47 @@ const Log = async (
     }
   }
 
-  /**
-   * Async iterator over the log entries
-   *
-   * @param {Object} options
-   * @param {amount} options.amount Number of entried to return. Default: return all entries.
-   * @param {string} options.gt Beginning hash of the iterator, non-inclusive
-   * @param {string} options.gte Beginning hash of the iterator, inclusive
-   * @param {string} options.lt Ending hash of the iterator, non-inclusive
-   * @param {string} options.lte Ending hash of the iterator, inclusive
-   * @return {Symbol.asyncIterator} Iterator object of log entries
-   *
-   * @examples
-   *
-   * (async () => {
-   *   log = await Log(testIdentity, { logId: 'X' })
-   *
-   *   for (let i = 0; i <= 100; i++) {
-   *     await log.append('entry' + i)
-   *   }
-   *
-   *   let it = log.iterator({
-   *     lte: 'zdpuApFd5XAPkCTmSx7qWQmQzvtdJPtx2K5p9to6ytCS79bfk',
-   *     amount: 10
-   *   })
-   *
-   *   for await (let entry of it) {
-   *     console.log(entry.payload) // 'entry100', 'entry99', ..., 'entry91'
-   *   }
-   * })()
-   *
-   * @memberof module:Log~Log
-   * @instance
-   */
-  const iterator = async function* ({ amount = -1, gt, gte, lt, lte } = {}) {
+  async function* iterator({
+    amount = -1,
+    gt,
+    gte,
+    lt,
+    lte,
+  }: LogIteratorOptions): AsyncGenerator<EntryInstance<T>> {
     // TODO: write comments on how the iterator algorithm works
+    let lte_: (EntryInstance<T> | null)[] | null = null
+    let lt_: (EntryInstance<T> | null)[] | null = null
 
     if (amount === 0) {
       return
     }
 
     if (typeof lte === 'string') {
-      lte = [await get(lte)]
+      lte_ = [await get(lte!)]
     }
 
     if (typeof lt === 'string') {
       const entry = await get(lt)
-      const nexts = await Promise.all(entry.next.map((n) => get(n)))
-      lt = nexts
+      const nexts = await Promise.all((entry?.next ?? []).map((n) => get(n)))
+      lt_ = nexts
     }
 
-    if (lt != null && !Array.isArray(lt)) {
+    if (lt_ !== null && !Array.isArray(lt_)) {
       throw new Error('lt must be a string or an array of Entries')
     }
-    if (lte != null && !Array.isArray(lte)) {
+    if (lte_ !== null && !Array.isArray(lte_)) {
       throw new Error('lte must be a string or an array of Entries')
     }
 
-    const start = (lt || lte || (await heads())).filter((i) => i != null)
-    const end = gt || gte ? await get(gt || gte) : null
+    const start: EntryInstance<T>[] = (lt_ || lte_ || (await heads())).filter(
+      (i) => i !== null,
+    )
+    const end = gt || gte ? await get((gt || gte)!) : null
 
     const amountToIterate = end || amount === -1 ? -1 : amount
 
     let count = 0
-    const shouldStopTraversal = async (entry) => {
+    const shouldStopTraversal = async (entry: EntryInstance<T>) => {
       count++
       if (!entry) {
         return false
@@ -543,15 +471,15 @@ const Log = async (
       return false
     }
 
-    const useBuffer = end && amount !== -1 && !lt && !lte
+    const useBuffer = end && amount !== -1 && !lt && !lte_
     const buffer = useBuffer ? new LRU(amount + 2) : null
     let index = 0
 
     const it = traverse(start, shouldStopTraversal)
 
     for await (const entry of it) {
-      const skipFirst = lt && Entry.isEqual(entry, start)
-      const skipLast = gt && Entry.isEqual(entry, end)
+      const skipFirst = lt && Entry.isEqual(entry, start[0])
+      const skipLast = gt && Entry.isEqual(entry, end!)
       const skip = skipFirst || skipLast
       if (!skip) {
         if (useBuffer) {
@@ -569,70 +497,32 @@ const Log = async (
       for (const key of keys) {
         const hash = buffer.get(key)
         const entry = await get(hash)
-        yield entry
+        yield entry!
       }
     }
   }
 
-  /**
-   * Clear all entries from the log and the underlying storages
-   * @memberof module:Log~Log
-   * @instance
-   */
-  const clear = async () => {
-    await _index.clear()
-    await _heads.clear()
-    await _entries.clear()
-  }
-
-  /**
-   * Close the log and underlying storages
-   * @memberof module:Log~Log
-   * @instance
-   */
-  const close = async () => {
-    await _index.close()
-    await _heads.close()
-    await _entries.close()
-  }
-
-  /**
-   * Check if an object is a Log.
-   * @param {Log} obj
-   * @return {boolean}
-   * @memberof module:Log~Log
-   * @instance
-   */
-  const isLog = (obj) => {
-    return (
-      obj &&
-      obj.id !== undefined &&
-      obj.clock !== undefined &&
-      obj.heads !== undefined &&
-      obj.values !== undefined &&
-      obj.access !== undefined &&
-      obj.identity !== undefined &&
-      obj.storage !== undefined
-    )
-  }
-
-  /**
-   * Get an array of references to multiple entries in the past.
-   * @param {Array<Entry>} heads An array of Log heads starting rom which the references are collected from.
-   * @param {number} amount The number of references to return.
-   * @return {Array<string>}
-   * @private
-   */
-  const getReferences = async (heads, amount = 0) => {
+  const getReferences = async (heads: EntryInstance<T>[], amount: number) => {
     let refs = []
-    const shouldStopTraversal = async (entry) => {
+    const shouldStopTraversal = async (
+      entry: EntryInstance<T>,
+      useRefs: boolean,
+    ) => {
       return refs.length >= amount && amount !== -1
     }
     for await (const { hash } of traverse(heads, shouldStopTraversal, false)) {
-      refs.push(hash)
+      refs.push(hash!)
     }
     refs = refs.slice(heads.length + 1, amount)
+
     return refs
+  }
+
+  const clock = async () => {
+    const heads_ = await heads()
+    const maxTime = Math.max(0, heads_.reduce(maxClockTimeReducer, 0))
+
+    return Clock(identity.publicKey, maxTime)
   }
 
   return {
@@ -652,8 +542,19 @@ const Log = async (
     close,
     access,
     identity,
-    storage: _entries,
+    storage,
   }
 }
 
-export { Log as default, DefaultAccessController, Clock }
+const isLog = (obj: any): obj is LogInstance<any> => {
+  return (
+    obj &&
+    obj.id !== undefined &&
+    obj.clock !== undefined &&
+    obj.heads !== undefined &&
+    obj.values !== undefined &&
+    obj.access !== undefined &&
+    obj.identity !== undefined &&
+    obj.storage !== undefined
+  )
+}

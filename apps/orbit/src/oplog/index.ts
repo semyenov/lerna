@@ -1,4 +1,10 @@
-export { default as Log, DefaultAccessController } from './log.js'
-export { default as Entry } from './entry.js'
-export { default as Clock } from './clock.js'
-export { default as ConflictResolution } from './conflict-resolution.js'
+export { Log } from './log.js'
+export { Entry, EntryInstance, verify } from './entry.js'
+export { Clock, ClockInstance, compareClocks, tickClock } from './clock.js'
+export {
+  LastWriteWins,
+  NoZeroes,
+  SortByClockId,
+  SortByClocks,
+} from './conflict-resolution.js'
+export { Heads } from './heads.js'

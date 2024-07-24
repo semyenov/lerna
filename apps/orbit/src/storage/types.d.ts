@@ -1,6 +1,5 @@
-/* eslint-disable no-unused-vars */
 export interface StorageInstance<T> {
-  put: (hash: string, data: any) => Promise<void>
+  put: (hash: string, data: T) => Promise<void>
   get: (hash: string) => Promise<T | null>
   del: (hash: string) => Promise<void>
 

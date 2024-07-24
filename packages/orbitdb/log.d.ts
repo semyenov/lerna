@@ -11,11 +11,7 @@ interface Clock {
 export namespace Entry {
   export interface Instance<T = unknown> {
     id: string
-    payload: {
-      op: 'PUT' | 'DEL'
-      key: string
-      value: T
-    }
+    payload: T
     hash: string
     next: string[]
     refs: string[]
@@ -56,13 +52,13 @@ interface LogAppendOptions {
 }
 interface LogOptions<T> {
   logId?: string
-  logHeads?: Entry.Instance<T>[]
+  logHeads?: EntryInstance<T>[]
   access?: AccessControllerInstance
-  entries?: Entry.Instance<T>[]
+  entries?: EntryInstance<T>[]
   entryStorage?: StorageInstance
   headsStorage?: StorageInstance
   indexStorage?: StorageInstance
-  sortFn?: (a: Entry.Instance<T>, b: Entry.Instance<T>) => number
+  sortFn?: (a: EntryInstance<T>, b: EntryInstance<T>) => number
 }
 interface LogInstance<T> {
   id: string
@@ -72,19 +68,20 @@ interface LogInstance<T> {
   storage: StorageInstance
 
   clock: () => Promise<Clock>
-  heads: () => Promise<Entry.Instance<T>[]>
-  values: () => Promise<Entry.Instance<T>[]>
-  all: () => Promise<Entry.Instance<T>[]>
-  get: (hash: string) => Promise<Entry.Instance<T> | undefined>
+  heads: () => Promise<EntryInstance<T>[]>
+  values: () => Promise<EntryInstance<T>[]>
+  all: () => Promise<EntryInstance<T>[]>
+  get: (hash: string) => Promise<EntryInstance<T> | undefined>
   has: (hash: string) => Promise<boolean>
-  append: (payload: T, options?: LogAppendOptions) => Promise<Entry.Instance<T>>
+  append: (payload: T, options?: LogAppendOptions) => Promise<EntryInstance<T>>
   join: (log: LogInstance<T>) => Promise<void>
-  joinEntry: (entry: Entry.Instance<T>) => Promise<void>
-  traverse: () => AsyncGenerator<Entry.Instance<T>>
-  iterator: (options?: LogIteratorOptions) => AsyncIterable<Entry.Instance<T>>
+  joinEntry: (entry: EntryInstance<T>) => Promise<void>
+  traverse: () => AsyncGenerator<EntryInstance<T>>
+  iterator: (options?: LogIteratorOptions) => AsyncIterable<EntryInstance<T>>
   clear: () => Promise<void>
   close: () => Promise<void>
 }
+
 declare function Log<T>(
   ipfs: IPFS,
   identity: IdentityInstance,

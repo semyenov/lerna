@@ -1,10 +1,9 @@
 import consola from 'consola'
-import { WebSocketServer } from 'ws'
+import { type ServerOptions, type WebSocket, WebSocketServer } from 'ws'
 
 import { wrapSocket } from './wrapper'
 
 import type { IJoseVerify } from '../jose/types'
-import type { ServerOptions, WebSocket } from 'ws'
 
 const logger = consola.withTag('wss')
 

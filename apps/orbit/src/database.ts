@@ -16,18 +16,18 @@ import {
   LevelStorage,
   type StorageInstance,
 } from './storage/index.js'
-import Sync from './sync.js'
-import pathJoin from './utils/path-join.js'
+import { Sync, SyncInstance } from './sync.js'
+import { join } from './utils'
 
 import type { AccessControllerInstance } from './access-controllers'
+import type { DatabaseOperation } from './databases/index.js'
 import type {
   IdentitiesInstance,
   IdentityInstance,
 } from './identities/index.js'
+import type { EntryInstance } from './oplog/entry.js'
 import type { HeliaInstance, PeerId } from './vendor.js'
-import type { DatabaseEvents } from 'packages/orbitdb/events.js'
-import type { LogInstance } from 'packages/orbitdb/log.js'
-import type { SyncInstance } from 'packages/orbitdb/sync.js'
+import { LogInstance } from './oplog/log.js'
 
 export interface DatabaseOptions<T> {
   meta: any
@@ -44,24 +44,40 @@ export interface DatabaseOptions<T> {
   headsStorage?: StorageInstance<any>
   entryStorage?: StorageInstance<any>
   indexStorage?: StorageInstance<any>
-  onUpdate?: (entry: Entry.Instance<T>) => void
+  onUpdate?: (
+    log: LogInstance<DatabaseOperation<T>>,
+    entry: EntryInstance<T>,
+  ) => Promise<void>
 }
+
+export interface DatabaseEvents<T = unknown> extends EventEmitter {
+  on: ((
+    event: 'join',
+    listener: (peerId: string, heads: EntryInstance<T>[]) => void,
+  ) => this) &
+    ((event: 'leave', listener: (peerId: string) => void) => this) &
+    ((event: 'close', listener: () => void) => this) &
+    ((event: 'drop', listener: () => void) => this) &
+    ((event: 'error', listener: (error: Error) => void) => this) &
+    ((event: 'update', listener: (entry: EntryInstance<T>) => void) => this)
+}
+
 export interface DatabaseInstance<T = unknown> {
-  address?: string
   name?: string
+  address?: string
+  indexBy?: string
   type: string
   peers: Set<PeerId>
-  indexBy: keyof T
   meta: any
 
-  log: LogInstance<T>
+  log: LogInstance<DatabaseOperation<T>>
   sync: SyncInstance<T>
 
   events: DatabaseEvents<T>
   access?: AccessControllerInstance
   identity?: IdentityInstance
 
-  addOperation: (op: any) => Promise<string>
+  addOperation: (op: DatabaseOperation<T>) => Promise<string>
   close: () => Promise<void>
   drop: () => Promise<void>
 }
@@ -69,71 +85,55 @@ export interface DatabaseInstance<T = unknown> {
 const DEFAULT_REFEREMCES_COUNT = 16
 const defaultCacheSize = 1000
 
-const Database = async <T = any>(
-  {
-    ipfs,
-    identity,
-    address,
-    name,
-    accessController,
-    directory,
-    meta,
-    headsStorage,
-    entryStorage,
-    indexStorage,
-    referencesCount,
-    syncAutomatically,
-    onUpdate,
-  }: DatabaseOptions<T> = {
-    meta: {},
-    directory: './orbitdb',
-    referencesCount: DEFAULT_REFEREMCES_COUNT,
-  },
-) => {
-  const path = pathJoin(directory, `./${address}/`)
-  const entryDB =
+export const Database = async <T = any>({
+  ipfs,
+  identity,
+  address,
+  name,
+  accessController,
+  directory = './orbitdb',
+  meta = {},
+  headsStorage,
+  entryStorage,
+  indexStorage,
+  referencesCount = DEFAULT_REFEREMCES_COUNT,
+  syncAutomatically,
+  onUpdate,
+}: DatabaseOptions<T>): Promise<DatabaseInstance<T>> => {
+  const path = join(directory, `./${address}/`)
+  const entryStorage_ =
     entryStorage ||
     (await ComposedStorage({
       storage1: await LRUStorage({ size: defaultCacheSize }),
       storage2: await IPFSBlockStorage({ ipfs, pin: true }),
     }))
 
-  const headsDB =
+  const headsStorage_ =
     headsStorage ||
     (await ComposedStorage({
       storage1: await LRUStorage({ size: defaultCacheSize }),
-      storage2: await LevelStorage({ path: pathJoin(path, '/log/_heads/') }),
+      storage2: await LevelStorage({ path: join(path, '/log/_heads/') }),
     }))
 
-  const indexDB =
+  const indexStorage_ =
     indexStorage ||
     (await ComposedStorage({
       storage1: await LRUStorage({ size: defaultCacheSize }),
-      storage2: await LevelStorage({ path: pathJoin(path, '/log/_index/') }),
+      storage2: await LevelStorage({ path: join(path, '/log/_index/') }),
     }))
 
-  const log = await Log(identity, {
+  const log = await Log<DatabaseOperation<T>>(identity!, {
     logId: address,
     accessController,
-    entryStorage: entryDB,
-    headsStorage: headsDB,
-    indexStorage: indexDB,
+    entryStorage: entryStorage_,
+    headsStorage: headsStorage_,
+    indexStorage: indexStorage_,
   })
 
   const events = new EventEmitter()
-
   const queue = new PQueue({ concurrency: 1 })
 
-  /**
-   * Adds an operation to the oplog.
-   * @function addOperation
-   * @param {*} op Some operation to add to the oplog.
-   * @return {string} The hash of the operation.
-   * @memberof module:Databases~Database
-   * @instance
-   * @async
-   */
-  const addOperation = async (op) => {
+  const addOperation = async (op: DatabaseOperation<T>) => {
     const task = async () => {
       const entry = await log.append(op, { referencesCount })
       await sync.add(entry)
@@ -148,9 +148,9 @@ const Database = async <T = any>(
     return hash
   }
 
-  const applyOperation = async (bytes) => {
+  const applyOperation = async (bytes: Uint8Array) => {
     const task = async () => {
-      const entry = await Entry.decode(bytes)
+      const entry = await Entry.decode<DatabaseOperation<T>>(bytes)
       if (entry) {
         const updated = await log.joinEntry(entry)
         if (updated) {
@@ -174,8 +174,8 @@ const Database = async <T = any>(
     await sync.stop()
     await queue.onIdle()
     await log.close()
-    if (access && access.close) {
-      await access.close()
+    if (accessController && accessController.close) {
+      await accessController.close()
     }
     events.emit('close')
   }
@@ -259,5 +259,3 @@ const Database = async <T = any>(
     access,
   }
 }
-
-export default Database

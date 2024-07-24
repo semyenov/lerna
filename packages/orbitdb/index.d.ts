@@ -1,7 +1,4 @@
-import type {
-  AccessController,
-  AccessControllerInstance,
-} from './access-controller'
+import type { AccessControllerInstance } from './access-controller'
 import type { DatabaseInstance } from './database'
 import type { Databases, DatabasesTypeMap } from './databases'
 import type { IdentitiesInstance, IdentityInstance } from './identities'
@@ -16,7 +13,9 @@ interface OrbitDBOpenOptions<D extends keyof DatabasesTypeMap> {
   referencesCount?: number
 
   Database?: Databases<keyof DatabasesTypeMap, DatabaseInstance>
-  AccessController?: AccessController<string, AccessControllerInstance>
+  AccessController?: (
+    options: AccessControllerOptions,
+  ) => AccessControllerInstance
 
   headsStorage?: StorageInstance
   entryStorage?: StorageInstance

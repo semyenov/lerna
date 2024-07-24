@@ -8,8 +8,10 @@ const config = sxzz(
     {
       rules: {
         'eslint-comments/no-unlimited-disable': 'off',
-        'no-duplicate-imports': 'off',
+        'no-duplicate-imports': 'error',
+        'no-unused-vars': 'off',
         'require-await': 'off',
+        'unused-imports/no-unused-var': 'off',
         'import/order': [
           'error',
           {
@@ -52,7 +54,6 @@ const config = sxzz(
         strict: 'error',
         'no-var': 'error',
         'prefer-const': 'error',
-        'no-unused-vars': 'error',
         'no-console': 'error',
         'no-debugger': 'error',
         'no-alert': 'error',

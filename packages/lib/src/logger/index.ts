@@ -2,12 +2,11 @@
 import { inspect } from 'node:util'
 
 import {
+  type LoggerOptions,
   createLogger as createWinstonLogger,
   format as f,
   transports as t,
 } from 'winston'
-
-import type { LoggerOptions } from 'winston'
 
 export function createLogger(options?: LoggerOptions) {
   return createWinstonLogger({

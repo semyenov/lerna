@@ -1,154 +1,131 @@
-/**
- * @namespace Databases-KeyValue
- * @memberof module:Databases
- * @description
- * Key-Value database.
- *
- * @augments module:Databases~Database
- */
-import Database from '../database.js'
+import {
+  Database,
+  type DatabaseInstance,
+  type DatabaseOptions,
+} from '../database'
+
+import type { DatabaseOperation, DatabaseType } from '.'
+import type { AccessControllerInstance } from '../access-controllers'
+import type { IdentityInstance } from '../identities'
+import type { EntryInstance } from '../oplog'
+import type { LogInstance } from '../oplog/log'
+import type { StorageInstance } from '../storage'
+import type { HeliaInstance } from '../vendor'
 
 const type = 'keyvalue'
 
-/**
- * Defines a KeyValue database.
- * @return {module:Databases.Databases-KeyValue} A KeyValue function.
- * @memberof module:Databases
- */
-const KeyValue =
-  () =>
-  async ({
-    ipfs,
-    identity,
-    address,
-    name,
-    access,
-    directory,
-    meta,
-    headsStorage,
-    entryStorage,
-    indexStorage,
-    referencesCount,
-    syncAutomatically,
-    onUpdate,
-  }) => {
-    const database = await Database({
-      ipfs,
-      identity,
-      address,
-      name,
-      access,
-      directory,
-      meta,
-      headsStorage,
-      entryStorage,
-      indexStorage,
-      referencesCount,
-      syncAutomatically,
-      onUpdate,
-    })
+export interface KeyValueDatabaseOptions<T = unknown>
+  extends DatabaseOptions<T> {
+  ipfs?: HeliaInstance
+  identity?: IdentityInstance
+  address?: string
+  name?: string
+  access?: AccessControllerInstance
+  directory: string
+  meta: any
+  headsStorage?: StorageInstance<Uint8Array>
+  entryStorage?: StorageInstance<EntryInstance<T>>
+  indexStorage?: StorageInstance<boolean>
+  referencesCount?: number
+  syncAutomatically?: boolean
+  onUpdate?: (
+    log: LogInstance<DatabaseOperation<T>>,
+    entry: EntryInstance<T>,
+  ) => Promise<void>
+}
 
+export interface KeyValueEntry<T> {
+  key?: string
+  hash?: string
+  value: T | null
+}
+
+export interface KeyValueInstance<T> extends DatabaseInstance<T> {
+  type: 'keyvalue'
+  indexBy?: string
+
+  put: (key: string, value: T) => Promise<string>
+  set: (key: string, value: T) => Promise<string>
+  del: (key: string) => Promise<string>
+  get: (key: string) => Promise<T | null>
+  iterator: (options?: { amount?: number }) => AsyncIterable<KeyValueEntry<T>>
+  all: () => Promise<KeyValueEntry<T>[]>
+}
+
+export const KeyValue: DatabaseType<'keyvalue'> =
+  () =>
+  async <T = unknown>(
+    options: KeyValueDatabaseOptions<T>,
+  ): Promise<KeyValueInstance<T>> => {
+    const database = await Database<T>(options)
     const { addOperation, log } = database
 
-    /**
-     * Stores a key/value pair to the store.
-     * @function
-     * @param {string} key The key to store.
-     * @param {*} value The value to store.
-     * @return {string} The hash of the new oplog entry.
-     * @memberof module:Databases.Databases-KeyValue
-     * @instance
-     */
-    const put = async (key, value) => {
+    const put = async (key: string, value: T): Promise<string> => {
       return addOperation({ op: 'PUT', key, value })
     }
 
-    /**
-     * Deletes a key/value pair from the store.
-     * @function
-     * @param {string} key The key of the key/value pair to delete.
-     * @memberof module:Databases.Databases-KeyValue
-     * @instance
-     */
-    const del = async (key) => {
+    const del = async (key: string): Promise<string> => {
       return addOperation({ op: 'DEL', key, value: null })
     }
 
-    /**
-     * Gets a value from the store by key.
-     * @function
-     * @param {string} key The key of the value to get.
-     * @return {*} The value corresponding to key or null.
-     * @memberof module:Databases.Databases-KeyValue
-     * @instance
-     */
-    const get = async (key) => {
+    const get = async (key: string): Promise<T | null> => {
       for await (const entry of log.traverse()) {
         const { op, key: k, value } = entry.payload
         if (op === 'PUT' && k === key) {
-          return value
+          return value as T
         } else if (op === 'DEL' && k === key) {
-          return
+          return null
         }
       }
+
+      return null
     }
 
-    /**
-     * Iterates over keyvalue pairs.
-     * @function
-     * @param {Object} [filters={}] Various filters to apply to the iterator.
-     * @param {string} [filters.amount=-1] The number of results to fetch.
-     * @yields [string, string, string] The next key/value as key/value/hash.
-     * @memberof module:Databases.Databases-KeyValue
-     * @instance
-     */
-    const iterator = async function* ({ amount } = {}) {
-      const keys = {}
+    const iterator = async function* ({
+      amount,
+    }: { amount?: number } = {}): AsyncIterable<KeyValueEntry<T>> {
+      const keys: Record<string, boolean> = {}
       let count = 0
       for await (const entry of log.traverse()) {
         const { op, key, value } = entry.payload
-        if (op === 'PUT' && !keys[key]) {
-          keys[key] = true
+        if (op === 'PUT' && !keys[key!]) {
+          keys[key!] = true
           count++
-          const hash = entry.hash
-          yield { key, value, hash }
-        } else if (op === 'DEL' && !keys[key]) {
-          keys[key] = true
+          const hash = entry.hash!
+          yield {
+            key: key!,
+            value: value || null,
+            hash,
+          } satisfies KeyValueEntry<T>
+        } else if (op === 'DEL' && !keys[key!]) {
+          keys[key!] = true
         }
-        if (count >= amount) {
+        if (amount !== undefined && count >= amount) {
           break
         }
       }
     }
 
-    /**
-     * Returns all key/value pairs.
-     * @function
-     * @return [][string, string, string] An array of key/value pairs as
-     * key/value/hash entries.
-     * @memberof module:Databases.Databases-KeyValue
-     * @instance
-     */
-    const all = async () => {
-      const values = []
+    const all = async (): Promise<KeyValueEntry<T>[]> => {
+      const values: KeyValueEntry<T>[] = []
       for await (const entry of iterator()) {
         values.unshift(entry)
       }
       return values
     }
 
-    return {
+    const instance: KeyValueInstance<T> = {
       ...database,
       type,
       put,
-      set: put, // Alias for put()
+      set: put,
       del,
       get,
       iterator,
       all,
     }
+
+    return instance
   }
 
 KeyValue.type = type
-
-export default KeyValue

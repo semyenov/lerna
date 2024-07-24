@@ -4,7 +4,6 @@ import type {
   AccessController,
   AccessControllerInstance,
   AccessControllerOptions,
-  Entry,
 } from '@orbitdb/core'
 
 enum CAP {
@@ -44,7 +43,7 @@ export const CustomAccessController = (): ((
       async function canAppend({
         identity,
         payload,
-      }: Entry.Instance<unknown>): Promise<boolean> {
+      }: EntryInstance<unknown>): Promise<boolean> {
         logger.info(`Checking if user ${identity} can append to ${payload.key}`)
 
         const writerIdentity = await identities.getIdentity(identity)

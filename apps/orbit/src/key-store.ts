@@ -1,4 +1,3 @@
-/* eslint-disable no-unused-vars */
 import * as crypto from '@libp2p/crypto'
 import { compare as uint8ArrayCompare } from 'uint8arrays/compare'
 import { fromString as uint8ArrayFromString } from 'uint8arrays/from-string'
@@ -7,7 +6,7 @@ import { toString as uint8ArrayToString } from 'uint8arrays/to-string'
 import { ComposedStorage, LRUStorage, LevelStorage } from './storage/index.js'
 
 import type { StorageInstance } from './storage'
-import type { PrivateKey, PublicKey } from './vendor'
+import type { PrivateKey } from './vendor'
 
 export interface KeyStoreOptions {
   storage?: StorageInstance<Uint8Array>
@@ -22,7 +21,7 @@ export abstract class KeyStoreInstance {
   abstract removeKey: (id: string) => Promise<void>
 
   abstract getKey: (id: string) => Promise<PrivateKey<'secp256k1'> | null>
-  abstract getPublic: (id: string) => Promise<PublicKey<'secp256k1'> | null>
+  abstract getPublic: (key: PrivateKey<'secp256k1'>) => string
 
   abstract clear: () => Promise<void>
   abstract close: () => Promise<void>
@@ -69,7 +68,7 @@ export const KeyStore = async (
       return hasKey
     },
     addKey: async (id, key) => {
-      await db.put(`private_${id}`, key)
+      await db.put(`private_${id}`, key.marshal())
     },
     createKey: async (id) => {
       if (!id) {
@@ -93,13 +92,12 @@ export const KeyStore = async (
 
       return unmarshal(storedKey)
     },
-    getPublic: async (id: string) => {
-      const keys = await keyStore.getKey(id)
+    getPublic: (keys: PrivateKey<'secp256k1'>) => {
       if (!keys) {
         throw new Error('keys needed to get a public key')
       }
 
-      return unmarshalPubKey(keys.public.bytes)
+      return keys.public.marshal().toString()
     },
     removeKey: async (id) => {
       if (!id) {
@@ -172,7 +170,7 @@ export async function signMessage(
 export async function verifyMessage(
   signature: string,
   publicKey: string,
-  data: string,
+  data: string | Uint8Array,
 ): Promise<boolean> {
   const verifiedCache = await VERIFIED_CACHE
   const cached = await verifiedCache.get(signature)

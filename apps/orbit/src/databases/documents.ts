@@ -1,53 +1,72 @@
-/**
- * @namespace Databases-Documents
- * @memberof module:Databases
- * @description Documents database.
- * @example <caption>Create documents db with custom index</caption>
- * import { createHelia } from 'helia'
- * import { createOrbitDB, Documents } from 'orbitdb'
- *
- * const ipfs = createHelia()
- * const orbitdb = await createOrbitDB({ ipfs })
- * const db = await orbitdb.open('my-docs', { Database: Documents({ indexBy: 'myCustomId'} ) }
- *
- * @augments module:Databases~Database
- */
-import Database from '../database.js'
+import {
+  Database,
+  type DatabaseInstance,
+  type DatabaseOptions,
+} from '../database.js'
+
+import type { DatabaseType } from './index.js'
 
 const type = 'documents'
 
-const DefaultOptions = { indexBy: '_id' }
+export interface DocumentsDoc<T = unknown> {
+  hash: string
+  key: string
+  value: T
+}
+
+export interface DocumentsIteratorOptions {
+  amount?: number
+}
+
+export interface DocumentsOptions<T> {
+  indexBy?: string
+}
+
+export interface DocumentsInstance<T = unknown> extends DatabaseInstance<T> {
+  type: 'documents'
+
+  all: () => Promise<DocumentsDoc<T>[]>
+  del: (key: string) => Promise<string>
+  get: (key: string) => Promise<DocumentsDoc<T> | null>
+  iterator: (
+    options?: DocumentsIteratorOptions,
+  ) => AsyncIterable<DocumentsDoc<T>>
+  put: (doc: T) => Promise<string>
+  query: (findFn: (doc: T) => boolean) => Promise<T[]>
+}
 
 /**
  * Defines a Documents database.
- * @param {Object} options Various options for configuring the Document store.
+ * @param {DocumentsOptions<T>} options Various options for configuring the Document store.
  * @param {string} [options.indexBy=_id] An index.
- * @return {module:Databases.Databases-Documents} A Documents function.
+ * @return {DatabaseType<'documents'>} A Documents function.
  * @memberof module:Databases
  */
-const Documents =
-  ({ indexBy } = DefaultOptions) =>
-  async ({
+export const Documents: DatabaseType<'documents'> = () => {
+  return async <T = unknown>({
     ipfs,
     identity,
     address,
     name,
-    access,
     directory,
     meta,
     headsStorage,
     entryStorage,
     indexStorage,
+    accessController,
     referencesCount,
     syncAutomatically,
     onUpdate,
-  }) => {
-    const database = await Database({
+    indexBy = '_id',
+  }: DatabaseOptions<T> & DocumentsOptions<T>): Promise<
+    DocumentsInstance<T>
+  > => {
+    const database = await Database<T>({
       ipfs,
       identity,
       address,
       name,
-      access,
+      accessController,
       directory,
       meta,
       headsStorage,
@@ -55,6 +74,7 @@ const Documents =
       indexStorage,
       referencesCount,
       syncAutomatically,
+      onUpdate,
     })
 
     const { addOperation, log } = database
@@ -62,32 +82,32 @@ const Documents =
     /**
      * Stores a document to the store.
      * @function
-     * @param {Object} doc An object representing a key/value list of fields.
-     * @return {string} The hash of the new oplog entry.
+     * @param {T} doc An object representing a key/value list of fields.
+     * @return {Promise<string>} The hash of the new oplog entry.
      * @memberof module:Databases.Databases-Documents
      * @instance
      */
-    const put = async (doc) => {
-      const key = doc[indexBy]
+    const put = async (doc: T): Promise<string> => {
+      const key = doc[indexBy as keyof T]
 
       if (!key) {
         throw new Error(
-          `The provided document doesn't contain field '${indexBy}'`,
+          `The provided document doesn't contain field '${String(indexBy)}'`,
         )
       }
 
-      return addOperation({ op: 'PUT', key, value: doc })
+      return addOperation({ op: 'PUT', key: String(key), value: doc })
     }
 
     /**
      * Deletes a document from the store.
      * @function
      * @param {string} key The key of the doc to delete.
-     * @return {string} The hash of the new oplog entry.
+     * @return {Promise<string>} The hash of the new oplog entry.
      * @memberof module:Databases.Databases-Documents
      * @instance
      */
-    const del = async (key) => {
+    const del = async (key: string): Promise<string> => {
       if (!(await get(key))) {
         throw new Error(`No document with key '${key}' in the database`)
       }
@@ -99,33 +119,34 @@ const Documents =
      * Gets a document from the store by key.
      * @function
      * @param {string} key The key of the doc to get.
-     * @return {Object} The doc corresponding to key or null.
+     * @return {Promise<DocumentsDoc<T> | null>} The doc corresponding to key or null.
      * @memberof module:Databases.Databases-Documents
      * @instance
      */
-    const get = async (key) => {
+    const get = async (key: string): Promise<DocumentsDoc<T> | null> => {
       for await (const doc of iterator()) {
         if (key === doc.key) {
           return doc
         }
       }
+      return null
     }
 
     /**
      * Queries the document store for documents matching mapper filters.
      * @function
-     * @param {function(Object)} findFn A function for querying for specific
+     * @param {function(T): boolean} findFn A function for querying for specific
      * results.
      *
      * The findFn function's signature takes the form `function(doc)` where doc
      * is a document's value property. The function should return true if the
      * document should be included in the results, false otherwise.
-     * @return {Array} Found documents.
+     * @return {Promise<T[]>} Found documents.
      * @memberof module:Databases.Databases-Documents
      * @instance
      */
-    const query = async (findFn) => {
-      const results = []
+    const query = async (findFn: (doc: T) => boolean): Promise<T[]> => {
+      const results: T[] = []
 
       for await (const doc of iterator()) {
         if (findFn(doc.value)) {
@@ -139,26 +160,32 @@ const Documents =
     /**
      * Iterates over documents.
      * @function
-     * @param {Object} [filters={}] Various filters to apply to the iterator.
-     * @param {string} [filters.amount=-1] The number of results to fetch.
-     * @yields [string, string, string] The next document as hash/key/value.
+     * @param {DocumentsIteratorOptions} [options={}] Various options to apply to the iterator.
+     * @param {number} [options.amount] The number of results to fetch.
+     * @yields {DocumentsDoc<T>} The next document as hash/key/value.
      * @memberof module:Databases.Databases-Documents
      * @instance
      */
-    const iterator = async function* ({ amount } = {}) {
-      const keys = {}
+    const iterator = async function* ({
+      amount,
+    }: DocumentsIteratorOptions = {}): AsyncGenerator<
+      DocumentsDoc<T>,
+      void,
+      unknown
+    > {
+      const keys: Record<string, boolean> = {}
       let count = 0
       for await (const entry of log.iterator()) {
         const { op, key, value } = entry.payload
-        if (op === 'PUT' && !keys[key]) {
-          keys[key] = true
+        if (op === 'PUT' && !keys[key!]) {
+          keys[key!] = true
           count++
           const hash = entry.hash
-          yield { hash, key, value }
-        } else if (op === 'DEL' && !keys[key]) {
-          keys[key] = true
+          yield { hash, key, value } satisfies DocumentsDoc<T>
+        } else if (op === 'DEL' && !keys[key!]) {
+          keys[key!] = true
         }
-        if (count >= amount) {
+        if (amount !== undefined && count >= amount) {
           break
         }
       }
@@ -167,13 +194,13 @@ const Documents =
     /**
      * Returns all documents.
      * @function
-     * @return [][string, string, string] An array of documents as hash/key
+     * @return {Promise<DocumentsDoc<T>[]>} An array of documents as hash/key
      * value entries.
      * @memberof module:Databases.Databases-Documents
      * @instance
      */
-    const all = async () => {
-      const values = []
+    const all = async (): Promise<DocumentsDoc<T>[]> => {
+      const values: DocumentsDoc<T>[] = []
       for await (const entry of iterator()) {
         values.unshift(entry)
       }
@@ -192,7 +219,6 @@ const Documents =
       all,
     }
   }
+}
 
 Documents.type = type
-
-export default Documents

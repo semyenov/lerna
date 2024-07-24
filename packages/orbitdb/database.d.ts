@@ -1,7 +1,7 @@
 import type { AccessControllerInstance } from './access-controller'
 import type { DatabaseEvents } from './events'
 import type { IdentityInstance } from './identities'
-import type { Entry, LogInstance } from './log'
+import type { LogInstance } from './log'
 import type { StorageInstance } from './storage'
 import type { SyncInstance } from './sync'
 import type { IPFS, PeerId } from './vendor'
@@ -20,7 +20,7 @@ interface DatabaseOptions<T> {
   headsStorage?: StorageInstance
   entryStorage?: StorageInstance
   indexStorage?: StorageInstance
-  onUpdate?: (entry: Entry.Instance<T>) => void
+  onUpdate?: (entry: EntryInstance<T>) => void
 }
 interface DatabaseInstance<T = unknown> {
   address?: string
@@ -31,8 +31,8 @@ interface DatabaseInstance<T = unknown> {
   meta: any
 
   events: DatabaseEvents<T>
-  access?: AccessControllerInstance
-  identity?: IdentityInstance
+  access: AccessControllerInstance
+  identity: IdentityInstance
   log: LogInstance<T>
   sync: SyncInstance<T>
 

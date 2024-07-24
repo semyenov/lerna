@@ -4,108 +4,53 @@ import { pipe } from 'it-pipe'
 import PQueue from 'p-queue'
 import { TimeoutController } from 'timeout-abort-controller'
 
-import pathJoin from './utils/path-join.js'
+import { join } from './utils'
 
-const DefaultTimeout = 30000 // 30 seconds
+import type { EntryInstance } from './oplog/entry.js'
+import type { HeliaInstance, PeerId } from './vendor'
+import type { LogInstance } from '../types/log.js'
+import type { Sink } from 'it-stream-types'
+import type { Uint8ArrayList } from 'uint8arraylist'
 
-/**
- * @module Sync
- * @description
- * The Sync Protocol for OrbitDB synchronizes the database operations {@link module:Log} between multiple peers.
- *
- * The Sync Protocol sends and receives heads between multiple peers,
- * both when opening a database and when a database is updated, ie.
- * new entries are appended to the log.
- *
- * When Sync is started, a peer subscribes to a pubsub topic of the log's id.
- * Upon subscribing to the topic, peers already connected to the topic receive
- * the subscription message and "dial" the subscribing peer using a libp2p
- * custom protocol. Once connected to the subscribing peer on a direct
- * peer-to-peer connection, the dialing peer and the subscribing peer exchange * the heads of the Log each peer currently has. Once completed, the peers have * the same "local state".
- *
- * Once the initial sync has completed, peers notify one another of updates to
- * the log, ie. updates to the database, using the initially opened pubsub
- * topic subscription. A peer with new heads broadcasts changes to other peers
- * by publishing the updated heads to the pubsub topic. Peers subscribed to the
- * same topic will then receive the update and will update their log's state,
- * the heads, accordingly.
- *
- * The Sync Protocol is eventually consistent. It guarantees that once all
- * messages have been sent and received, peers will observe the same log state
- * and values. The Sync Protocol does not guarantee the order in which messages
- * are received or even that a message is recieved at all, nor any timing on
- * when messages are received.
- *
- * @example
- * // Using defaults
- * const sync = await Sync({ ipfs, log, onSynced: (peerId, heads) => ... })
- *
- * @example
- * // Using all parameters
- * const sync = await Sync({ ipfs, log, events, onSynced: (peerId, heads) => ..., start: false })
- * sync.events.on('join', (peerId, heads) => ...)
- * sync.events.on('leave', (peerId) => ...)
- * sync.events.on('error', (err) => ...)
- * await sync.start()
- */
+export interface SyncEvents<T> extends EventEmitter {
+  on: ((
+    event: 'join',
+    listener: (peerId: string, heads: EntryInstance<T>[]) => void,
+  ) => this) &
+    ((event: 'leave', listener: (peerId: string) => void) => this) &
+    ((event: 'error', listener: (error: Error) => void) => this)
+}
 
-/**
- * Creates a Sync instance for sychronizing logs between multiple peers.
- *
- * @function
- * @param {Object} params One or more parameters for configuring Sync.
- * @param {IPFS} params.ipfs An IPFS instance.
- * @param {Log} params.log The log instance to sync.
- * @param {EventEmitter} [params.events] An event emitter to use. Events
- * emitted are 'join', 'leave' and 'error'. If the parameter is not provided,
- * an EventEmitter will be created.
- * @param {onSynced} [params.onSynced] A callback function that is called after
- * the peer has received heads from another peer.
- * @param {Boolean} [params.start] True if sync should start automatically,
- * false otherwise. Defaults to true.
- * @return {module:Sync~Sync} sync An instance of the Sync Protocol.
- * @memberof module:Sync
- * @instance
- */
-const Sync = async ({ ipfs, log, events, onSynced, start, timeout }) => {
-  /**
-   * @namespace module:Sync~Sync
-   * @description The instance returned by {@link module:Sync}.
-   */
+export interface SyncOptions<T> {
+  ipfs: HeliaInstance
+  log: LogInstance<T>
+  events?: SyncEvents<T>
+  start?: boolean
+  timestamp?: number
+  timeout?: number
 
-  /**
-   * Callback function when new heads have been received from other peers.
-   * @callback module:Sync~Sync#onSynced
-   * @param {PeerID} peerId PeerID of the peer who we received heads from
-   * @param {Entry[]} heads An array of Log entries
-   */
+  onSynced?: (peerId: PeerId, heads: EntryInstance<T>[]) => Promise<void>
+}
 
-  /**
-   * Event fired when when a peer has connected and the exchange of
-   * heads has been completed.
-   * @event module:Sync~Sync#join
-   * @param {PeerID} peerId PeerID of the peer who we received heads from
-   * @param {Entry[]} heads An array of Log entries
-   * @example
-   * sync.events.on('join', (peerID, heads) => ...)
-   */
+export interface SyncInstance<T> {
+  events: SyncEvents<T>
+  peers: Set<PeerId>
 
-  /**
-   * Event fired when a peer leaves the sync protocol.
-   * @event module:Sync~Sync#leave
-   * @param {PeerID} peerId PeerID of the peer who left
-   * @example
-   * sync.events.on('leave', (peerID) => ...)
-   */
+  start: () => Promise<void>
+  stop: () => Promise<void>
+  add: (entry: EntryInstance<T>) => Promise<void>
+}
 
-  /**
-   * Event fired when an error occurs.
-   * @event module:Sync~Sync#error
-   * @param {Error} error The error that occured
-   * @example
-   * sync.events.on('error', (error) => ...)
-   */
+const DEFAULT_TIMEOUT = 30000 // 30 seconds
 
+export const Sync = async <T>({
+  ipfs,
+  log,
+  events = new EventEmitter() as SyncEvents<T>,
+  onSynced,
+  start,
+  timeout = DEFAULT_TIMEOUT,
+}: SyncOptions<T>): Promise<SyncInstance<T>> => {
   if (!ipfs) {
     throw new Error('An instance of ipfs is required.')
   }
@@ -117,37 +62,20 @@ const Sync = async ({ ipfs, log, events, onSynced, start, timeout }) => {
   const pubsub = ipfs.libp2p.services.pubsub
 
   const address = log.id
-  const headsSyncAddress = pathJoin('/orbitdb/heads/', address)
+  const headsSyncAddress = join('/orbitdb/heads/', address)
 
   const queue = new PQueue({ concurrency: 1 })
 
-  /**
-   * Set of currently connected peers for the log for this Sync instance.
-   * @name peers
-   * @†ype Set
-   * @memberof module:Sync~Sync
-   * @instance
-   */
-  const peers = new Set()
-
-  /**
-   * Event emitter that emits Sync changes. See Events section for details.
-   * @†ype EventEmitter
-   * @memberof module:Sync~Sync
-   * @instance
-   */
-  events = events || new EventEmitter()
-
-  timeout = timeout || DefaultTimeout
+  const peers: Set<PeerId> = new Set()
 
   let started = false
 
-  const onPeerJoined = async (peerId) => {
+  const onPeerJoined = async (peerId: PeerId) => {
     const heads = await log.heads()
     events.emit('join', peerId, heads)
   }
 
-  const sendHeads = (source) => {
+  const sendHeads = (): AsyncIterable<Uint8Array> => {
     return (async function* () {
       const heads = await log.heads()
       for await (const { bytes } of heads) {
@@ -156,54 +84,71 @@ const Sync = async ({ ipfs, log, events, onSynced, start, timeout }) => {
     })()
   }
 
-  const receiveHeads = (peerId) => async (source) => {
-    for await (const value of source) {
-      const headBytes = value.subarray()
-      if (headBytes && onSynced) {
-        await onSynced(headBytes)
+  const receiveHeads =
+    (peerId: PeerId): Sink<AsyncIterable<Uint8ArrayList>, void> =>
+    async (source: AsyncIterable<Uint8ArrayList>) => {
+      for await (const value of source) {
+        const headBytes = value.subarray()
+        if (headBytes && onSynced) {
+          await onSynced(peerId, [headBytes as unknown as EntryInstance<T>])
+        }
+      }
+      if (started) {
+        await onPeerJoined(peerId)
       }
     }
-    if (started) {
-      await onPeerJoined(peerId)
-    }
-  }
 
-  const handleReceiveHeads = async ({ connection, stream }) => {
+  const handleReceiveHeads = async ({
+    connection,
+    stream,
+  }: {
+    connection: any
+    stream: any
+  }) => {
     const peerId = String(connection.remotePeer)
     try {
-      peers.add(peerId)
-      await pipe(stream, receiveHeads(peerId), sendHeads, stream)
+      peers.add(peerId as unknown as PeerId)
+      await pipe(
+        stream,
+        receiveHeads(peerId as unknown as PeerId),
+        sendHeads,
+        stream,
+      )
     } catch (error) {
-      peers.delete(peerId)
+      peers.delete(peerId as unknown as PeerId)
       events.emit('error', error)
     }
   }
 
-  const handlePeerSubscribed = async (event) => {
+  const handlePeerSubscribed = async (event: any) => {
     const task = async () => {
       const { peerId: remotePeer, subscriptions } = event.detail
       const peerId = String(remotePeer)
-      const subscription = subscriptions.find((e) => e.topic === address)
+      const subscription = subscriptions.find((e: any) => e.topic === address)
       if (!subscription) {
         return
       }
       if (subscription.subscribe) {
-        if (peers.has(peerId)) {
+        if (peers.has(peerId as unknown as PeerId)) {
           return
         }
         const timeoutController = new TimeoutController(timeout)
         const { signal } = timeoutController
         try {
-          peers.add(peerId)
+          peers.add(peerId as unknown as PeerId)
           const stream = await libp2p.dialProtocol(
             remotePeer,
             headsSyncAddress,
             { signal },
           )
-          await pipe(sendHeads, stream, receiveHeads(peerId))
-        } catch (error) {
+          await pipe(
+            sendHeads,
+            stream,
+            receiveHeads(peerId as unknown as PeerId),
+          )
+        } catch (error: any) {
           console.error(error)
-          peers.delete(peerId)
+          peers.delete(peerId as unknown as PeerId)
           if (error.code === 'ERR_UNSUPPORTED_PROTOCOL') {
             // Skip peer, they don't have this database currently
           } else {
@@ -215,20 +160,22 @@ const Sync = async ({ ipfs, log, events, onSynced, start, timeout }) => {
           }
         }
       } else {
-        peers.delete(peerId)
-        events.emit('leave', peerId)
+        peers.delete(peerId as unknown as PeerId)
+        events.emit('leave', peerId as unknown as PeerId)
       }
     }
     queue.add(task)
   }
 
-  const handleUpdateMessage = async (message) => {
+  const handleUpdateMessage = async (message: any) => {
     const { topic, data } = message.detail
 
     const task = async () => {
       try {
         if (data && onSynced) {
-          await onSynced(data)
+          await onSynced(message.detail.from as PeerId, [
+            data as unknown as EntryInstance<T>,
+          ])
         }
       } catch (error) {
         events.emit('error', error)
@@ -240,25 +187,12 @@ const Sync = async ({ ipfs, log, events, onSynced, start, timeout }) => {
     }
   }
 
-  /**
-   * Add a log entry to the Sync Protocol to be sent to peers.
-   * @function add
-   * @param {Entry} entry Log entry
-   * @memberof module:Sync~Sync
-   * @instance
-   */
-  const add = async (entry) => {
+  const add = async (entry: EntryInstance<T>) => {
     if (started) {
-      await pubsub.publish(address, entry.bytes)
+      await pubsub.publish(address, entry.bytes!)
     }
   }
 
-  /**
-   * Stop the Sync Protocol.
-   * @function stop
-   * @memberof module:Sync~Sync
-   * @instance
-   */
   const stopSync = async () => {
     if (started) {
       started = false
@@ -302,5 +236,3 @@ const Sync = async ({ ipfs, log, events, onSynced, start, timeout }) => {
     peers,
   }
 }
-
-export { Sync as default }

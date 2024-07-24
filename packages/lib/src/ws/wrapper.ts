@@ -34,9 +34,9 @@ export function wrapSocket<T>(ws: WebSocketProxy, jose?: IJoseVerify) {
           return customOn.bind(target)
         case 'send':
           return customSend.bind(target)
+        default:
+          return Reflect.get(target, prop, receiver)
       }
-
-      return Reflect.get(target, prop, receiver)
     },
   }) as T
 }

@@ -1,4 +1,3 @@
-/* eslint-disable no-unused-vars */
 import type { KeyStoreInstance } from '../../key-store'
 import type { StorageInstance } from '../../storage'
 import type { HeliaInstance } from '../../vendor'
@@ -44,7 +43,7 @@ interface IdentitiesOptions {
 
   ipfs?: HeliaInstance
   keystore?: KeyStoreInstance
-  storage?: StorageInstance
+  storage?: StorageInstance<Uint8Array>
 }
 interface IdentitiesInstance {
   createIdentity: (

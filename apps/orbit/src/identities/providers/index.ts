@@ -1,17 +1,42 @@
-import PublicKeyIdentityProvider from './publickey.js'
+import { PublicKeyIdentityProvider } from './publickey.js'
 
-const identityProviders = {}
+import type { KeyStoreInstance } from '../../key-store.js'
 
-const isProviderSupported = (type) => {
+export interface IdentityProviderGetIdOptions {
+  id: string
+}
+export interface IdentityProviderOptions {
+  keystore?: KeyStoreInstance
+}
+export interface IdentityProviderInstance {
+  type: string
+  getId: (options: IdentityProviderGetIdOptions) => Promise<string>
+  signIdentity: (
+    data: string,
+    options: IdentityProviderGetIdOptions,
+  ) => Promise<string>
+}
+export type IdentityProvider<
+  T extends string,
+  U extends IdentityProviderInstance,
+> = {
+  (options: IdentityProviderOptions): U
+  verifyIdentity: (data: any) => Promise<boolean>
+  type: T
+}
+
+const identityProviders: Record<string, IdentityProvider<string, any>> = {}
+
+const isProviderSupported = (type: string) => {
   return Object.keys(identityProviders).includes(type)
 }
 
-const getIdentityProvider = (type) => {
+const getIdentityProvider = (type: string) => {
   if (!isProviderSupported(type)) {
     throw new Error(`IdentityProvider type '${type}' is not supported`)
   }
 
-  return identityProviders[type]
+  return identityProviders[type!]
 }
 
 /**
@@ -23,7 +48,9 @@ const getIdentityProvider = (type) => {
  * @static
  * @memberof module:Identities
  */
-const useIdentityProvider = (identityProvider) => {
+const useIdentityProvider = (
+  identityProvider: IdentityProvider<string, any>,
+) => {
   if (!identityProvider.type || typeof identityProvider.type !== 'string') {
     throw new Error("Given IdentityProvider doesn't have a field 'type'.")
   }

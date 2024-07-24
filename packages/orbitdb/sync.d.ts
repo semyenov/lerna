@@ -1,5 +1,5 @@
 import type { SyncEvents } from './events'
-import type { Entry, LogInstance } from './log'
+import type { LogInstance } from './log'
 import type { IPFS, PeerId } from './vendor'
 
 interface SyncOptions<T> {
@@ -7,8 +7,10 @@ interface SyncOptions<T> {
   log: LogInstance<T>
   events?: SyncEvents<T>
   start?: boolean
+  timestamp?: number
+  timeout?: number
 
-  onSynced?: (peerId: PeerId, heads: Entry.Instance<T>[]) => void
+  onSynced?: (peerId: PeerId, heads: EntryInstance<T>[]) => void
 }
 interface SyncInstance<T> {
   events: SyncEvents<T>
@@ -16,9 +18,5 @@ interface SyncInstance<T> {
 
   start: () => Promise<void>
   stop: () => Promise<void>
-  add: (entry: Entry.Instance<T>) => void
+  add: (entry: EntryInstance<T>) => void
 }
-declare function Sync<T>(options: SyncOptions<T>): Promise<SyncInstance<T>>
-
-export type { SyncInstance, SyncOptions }
-export { Sync }
