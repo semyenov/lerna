@@ -1,8 +1,13 @@
-import { Documents, type DocumentsInstance } from './documents.js'
-import { Events, type EventsInstance } from './events.js'
+import {
+  Documents,
+  type DocumentsInstance,
+  type DocumentsOptions,
+} from './documents.js'
+import { Events, type EventsInstance, type EventsOptions } from './events.js'
 import {
   KeyValueIndexed,
   type KeyValueIndexedInstance,
+  type KeyValueIndexedOptions,
 } from './keyvalue-indexed.js'
 import { KeyValue, type KeyValueInstance } from './keyvalue.js'
 
@@ -27,7 +32,7 @@ export type DatabaseTypeMap<T = unknown> = {
 
 const databaseTypes: Record<string, ReturnType<DatabaseType>> = {}
 
-const useDatabaseType = (database: DatabaseType) => {
+export const useDatabaseType = (database: DatabaseType) => {
   if (!database.type) {
     throw new Error("Database type does not contain required field 'type'.")
   }
@@ -35,7 +40,7 @@ const useDatabaseType = (database: DatabaseType) => {
   databaseTypes[database.type] = database()
 }
 
-const getDatabaseType = (type: string) => {
+export const getDatabaseType = (type: string) => {
   if (!type) {
     throw new Error('Type not specified')
   }
@@ -51,11 +56,13 @@ useDatabaseType(Events)
 useDatabaseType(Documents)
 useDatabaseType(KeyValue)
 
-export {
-  useDatabaseType,
-  getDatabaseType,
-  Documents,
-  Events,
-  KeyValue,
-  KeyValueIndexed,
+export type {
+  DocumentsInstance,
+  DocumentsOptions,
+  EventsOptions,
+  EventsInstance,
+  KeyValueInstance,
+  KeyValueIndexedInstance,
+  KeyValueIndexedOptions,
 }
+export { Documents, Events, KeyValue, KeyValueIndexed }

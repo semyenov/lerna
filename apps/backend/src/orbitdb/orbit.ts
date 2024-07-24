@@ -1,14 +1,32 @@
+import {
+  type OrbitDBInstance,
+  type OrbitDBOptions,
+  createOrbitDB,
+} from '@apps/orbit'
 import { bitswap } from '@helia/block-brokers'
-import { createOrbitDB } from '@orbitdb/core'
 import { createLogger } from '@regioni/lib/logger'
 import { LevelBlockstore } from 'blockstore-level'
 import { createHelia } from 'helia'
 import { createLibp2p } from 'libp2p'
-
+import { type GossipSub, gossipsub } from '@chainsafe/libp2p-gossipsub'
+import { noise } from '@chainsafe/libp2p-noise'
+import { yamux } from '@chainsafe/libp2p-yamux'
+import {
+  circuitRelayServer,
+  circuitRelayTransport,
+} from '@libp2p/circuit-relay-v2'
+import { type Identify, identify } from '@libp2p/identify'
+import { mdns } from '@libp2p/mdns'
+import { tcp } from '@libp2p/tcp'
+import { webRTC } from '@libp2p/webrtc'
+import { webSockets } from '@libp2p/websockets'
+import { all } from '@libp2p/websockets/filters'
+import { createLogger } from '@regioni/lib/logger'
 import { DefaultLibp2pBrowserOptions, DefaultLibp2pOptions } from './config'
+import type { ServiceMap } from '@libp2p/interface'
+import type { Libp2pOptions } from 'libp2p'
 
-import type { CreateOrbitDBOptions, OrbitDBInstance } from '@orbitdb/core'
-
+export type Options<T extends ServiceMap = ServiceMap> = Libp2pOptions<T>
 const logger = createLogger()
 
 let spied: any
@@ -19,7 +37,7 @@ export async function startOrbitDB({
   identity,
   identities,
   directory = '.',
-}: Omit<CreateOrbitDBOptions, 'ipfs'>) {
+}: Omit<OrbitDBOptions, 'ipfs'>) {
   const options = isBrowser()
     ? DefaultLibp2pBrowserOptions
     : DefaultLibp2pOptions
@@ -35,7 +53,7 @@ export async function startOrbitDB({
     identity,
     identities,
     directory,
-    ipfs,
+    ipfs: ipfs as any,
   })
 }
 
@@ -45,3 +63,21 @@ export async function stopOrbitDB(orbitdb: OrbitDBInstance): Promise<void> {
 
   logger.debug('orbitdb stopped', spied.calls, spied.returns)
 }
+
+const orbitdb = await startOrbitDB({
+  id: 'test',
+  directory: '.',
+})
+
+const db = await orbitdb.open<{ test: string }, 'documents'>('test')
+
+db.events.on('update', (entry) => {
+  console.log(entry)
+})
+
+db.put({ test: 'test' })
+
+const result = await db.get('test')
+console.log(result)
+
+await stopOrbitDB(orbitdb)

@@ -1,4 +1,9 @@
-export { OrbitDB as createOrbitDB } from './orbitdb.js'
+export type {
+  OrbitDBInstance,
+  OrbitDBOptions,
+  OrbitDBOpenOptions,
+} from './orbitdb.js'
+export { OrbitDB as createOrbitDB, OrbitDBAddress } from './orbitdb.js'
 
 export {
   Documents,

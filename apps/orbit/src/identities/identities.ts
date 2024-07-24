@@ -19,13 +19,17 @@ import {
   isEqual,
   isIdentity,
 } from './identity.js'
-import { type IdentityProviderInstance, getIdentityProvider } from './providers'
+import {
+  type IdentityProvider,
+  type IdentityProviderInstance,
+  getIdentityProvider,
+} from './providers'
 
 import type { HeliaInstance } from '../vendor.js'
 
 interface IdentitiesCreateIdentityOptions {
   id?: string
-  provider?: IdentityProviderInstance
+  provider?: ReturnType<IdentityProvider<string, IdentityProviderInstance>>
 }
 export interface IdentitiesOptions {
   path?: string

@@ -9,8 +9,8 @@ import type { DatabaseType } from './index.js'
 const type = 'documents'
 
 export interface DocumentsDoc<T = unknown> {
-  hash?: string
   key?: string
+  hash?: string
   value: T | null
 }
 

@@ -83,7 +83,7 @@ export interface DatabaseInstance<T = unknown> {
 }
 
 const DEFAULT_REFEREMCES_COUNT = 16
-const defaultCacheSize = 1000
+const DEFAULT_CACHE_SIZE = 1000
 
 export const Database = async <T = any>({
   ipfs,
@@ -104,21 +104,21 @@ export const Database = async <T = any>({
   const entryStorage_ =
     entryStorage ||
     (await ComposedStorage({
-      storage1: await LRUStorage({ size: defaultCacheSize }),
+      storage1: await LRUStorage({ size: DEFAULT_CACHE_SIZE }),
       storage2: await IPFSBlockStorage({ ipfs, pin: true }),
     }))
 
   const headsStorage_ =
     headsStorage ||
     (await ComposedStorage({
-      storage1: await LRUStorage({ size: defaultCacheSize }),
+      storage1: await LRUStorage({ size: DEFAULT_CACHE_SIZE }),
       storage2: await LevelStorage({ path: join(path, '/log/_heads/') }),
     }))
 
   const indexStorage_ =
     indexStorage ||
     (await ComposedStorage({
-      storage1: await LRUStorage({ size: defaultCacheSize }),
+      storage1: await LRUStorage({ size: DEFAULT_CACHE_SIZE }),
       storage2: await LevelStorage({ path: join(path, '/log/_index/') }),
     }))
 

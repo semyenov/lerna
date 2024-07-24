@@ -22,6 +22,8 @@ export interface EventsIteratorOptions {
   amount?: number
 }
 
+export interface EventsOptions<T = unknown> extends DatabaseOptions<T> {}
+
 export interface EventsInstance<T = unknown> extends DatabaseInstance<T> {
   type: 'events'
 
@@ -33,7 +35,7 @@ export interface EventsInstance<T = unknown> extends DatabaseInstance<T> {
 
 export const Events: DatabaseType<'events'> = () => {
   return async <T = unknown>(
-    options: DatabaseOptions<T>,
+    options: EventsOptions<T>,
   ): Promise<EventsInstance<T>> => {
     const database = await Database(options)
     const { addOperation, log } = database

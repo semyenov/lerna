@@ -10,6 +10,7 @@ import type { LogInstance } from '../oplog/log.js'
 import type { StorageInstance } from '../storage/index.js'
 
 const valueEncoding = 'json'
+const type = 'keyvalue-indexed'
 
 export const Index =
   <T>({ directory }: { directory?: string } = {}) =>
@@ -73,9 +74,6 @@ export const Index =
       }
     }
 
-    /**
-     * Closes the index and its storages.
-     */
     const close = async () => {
       await index.close()
       await indexedEntries.close()
@@ -152,14 +150,6 @@ export const KeyValueIndexed: DatabaseType<'keyvalue-indexed'> = () => {
       onUpdate: index.update,
     })
 
-    /**
-     * Gets a value from the store by key.
-     * @function
-     * @param {string} key The key of the value to get.
-     * @return {*} The value corresponding to key or null.
-     * @memberof module:Databases.Databases-KeyValueIndexed
-     * @instance
-     */
     const get = async (key: string): Promise<T | null> => {
       const entry = await index.get(key)
       if (entry) {
@@ -169,15 +159,6 @@ export const KeyValueIndexed: DatabaseType<'keyvalue-indexed'> = () => {
       return null
     }
 
-    /**
-     * Iterates over keyvalue pairs.
-     * @function
-     * @param {Object} [filters={}] Various filters to apply to the iterator.
-     * @param {string} [filters.amount=-1] The number of results to fetch.
-     * @yields [string, string, string] The next key/value as key/value/hash.
-     * @memberof module:Databases.Databases-KeyValueIndexed
-     * @instance
-     */
     const iterator = async function* ({
       amount = -1,
     }: { amount?: number } = {}): AsyncIterable<{
@@ -199,17 +180,11 @@ export const KeyValueIndexed: DatabaseType<'keyvalue-indexed'> = () => {
       }
     }
 
-    /**
-     * Closes the index and underlying storage.
-     */
     const close = async (): Promise<void> => {
       await keyValueStore.close()
       await index.close()
     }
 
-    /**
-     * Drops all records from the index and underlying storage.
-     */
     const drop = async (): Promise<void> => {
       await keyValueStore.drop()
       await index.drop()
@@ -217,6 +192,7 @@ export const KeyValueIndexed: DatabaseType<'keyvalue-indexed'> = () => {
 
     return {
       ...keyValueStore,
+      type,
       get,
       iterator,
       close,
@@ -225,4 +201,4 @@ export const KeyValueIndexed: DatabaseType<'keyvalue-indexed'> = () => {
   }
 }
 
-KeyValueIndexed.type = 'keyvalue-indexed'
+KeyValueIndexed.type = type

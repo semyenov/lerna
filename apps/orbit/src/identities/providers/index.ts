@@ -20,18 +20,21 @@ export type IdentityProvider<
   T extends string,
   U extends IdentityProviderInstance,
 > = {
-  (options: IdentityProviderOptions): U
+  (options: IdentityProviderOptions): () => U
   verifyIdentity: (data: any) => Promise<boolean>
   type: T
 }
 
-const identityProviders: Record<string, IdentityProvider<string, any>> = {}
+export const identityProviders: Record<
+  string,
+  IdentityProvider<string, any>
+> = {}
 
-const isProviderSupported = (type: string) => {
+export const isProviderSupported = (type: string) => {
   return Object.keys(identityProviders).includes(type)
 }
 
-const getIdentityProvider = (type: string) => {
+export const getIdentityProvider = (type: string) => {
   if (!isProviderSupported(type)) {
     throw new Error(`IdentityProvider type '${type}' is not supported`)
   }
@@ -39,16 +42,7 @@ const getIdentityProvider = (type: string) => {
   return identityProviders[type!]
 }
 
-/**
- * Adds an identity provider.
- * @param {IdentityProvider} identityProvider The identity provider to add.
- * @throws Given IdentityProvider doesn\'t have a field \'type\'.
- * @throws Given IdentityProvider doesn\'t have a function \'verifyIdentity\'.
- * @throws IdentityProvider ${IdentityProvider.type} already added.
- * @static
- * @memberof module:Identities
- */
-const useIdentityProvider = (
+export const useIdentityProvider = (
   identityProvider: IdentityProvider<string, any>,
 ) => {
   if (!identityProvider.type || typeof identityProvider.type !== 'string') {
@@ -66,4 +60,4 @@ const useIdentityProvider = (
 
 useIdentityProvider(PublicKeyIdentityProvider)
 
-export { useIdentityProvider, getIdentityProvider, PublicKeyIdentityProvider }
+export * from './publickey.js'

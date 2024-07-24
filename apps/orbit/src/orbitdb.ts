@@ -64,7 +64,7 @@ const DEFAULT_DATABASE_TYPE = 'events'
 
 const DEFAULT_ACCESS_CONTROLLER = IPFSAccessController
 
-const OrbitDB = async ({
+export const OrbitDB = async ({
   ipfs,
   id,
   identity,
@@ -98,7 +98,10 @@ const OrbitDB = async ({
   let finalIdentity: IdentityInstance
   if (identity) {
     if (typeof identity.provider === 'function') {
-      finalIdentity = await identities_.createIdentity({ ...identity })
+      finalIdentity = await identities_.createIdentity({
+        id: identity.id,
+        provider: identity.provider,
+      })
     } else {
       finalIdentity = identity
     }
@@ -240,4 +243,4 @@ const OrbitDB = async ({
   }
 }
 
-export { OrbitDB, OrbitDBAddress }
+export { OrbitDBAddress }
