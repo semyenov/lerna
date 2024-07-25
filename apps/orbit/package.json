@@ -134,6 +134,7 @@
     "multiformats": "^13.2.0",
     "nanoid": "^5.0.7",
     "p-queue": "^8.0.1",
+    "printf-ts": "^2.0.1",
     "protons-runtime": "5.4.0",
     "remeda": "^2.6.0",
     "timeout-abort-controller": "^3.0.0",

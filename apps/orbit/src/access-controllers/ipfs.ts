@@ -12,8 +12,10 @@ import {
 } from '../storage/index.js'
 import { join } from '../utils'
 
-import type { AccessControllerInstance, AccessControllerType } from './index.js'
+import type { AccessControllerInstance } from './index.js'
+import type { IdentitiesInstance } from '../identities/index.js'
 import type { EntryInstance } from '../oplog/entry.js'
+import type { OrbitDBInstance } from '../orbitdb.js'
 
 const codec = dagCbor
 const hasher = sha256
@@ -46,63 +48,98 @@ export interface IPFSAccessControllerInstance extends AccessControllerInstance {
   canAppend: (entry: EntryInstance) => Promise<boolean>
 }
 
-export const IPFSAccessController: AccessControllerType<
-  'ipfs',
-  IPFSAccessControllerInstance
-> =
-  ({ write, storage }) =>
-  async ({ orbitdb, identities, address }) => {
-    let address_: string | undefined = address
-    let write_ = write || [orbitdb.identity.id]
+export class IPFSAccessController implements IPFSAccessControllerInstance {
+  public address: string
+  public write: string[]
 
-    const storage_ =
-      storage ||
-      (await ComposedStorage({
-        storage1: await LRUStorage({ size: 1000 }),
-        storage2: await IPFSBlockStorage({ ipfs: orbitdb.ipfs, pin: true }),
-      }))
+  get type(): 'ipfs' {
+    return ACCESS_CONTROLLER_IPFS_TYPE
+  }
+  static get type(): 'ipfs' {
+    return ACCESS_CONTROLLER_IPFS_TYPE
+  }
 
-    if (address_) {
-      const manifestBytes = await storage_.get(
-        address_.replaceAll('/ipfs/', ''),
-      )
+  private storage: StorageInstance<any>
+  private orbitdb: OrbitDBInstance
+  private identities: IdentitiesInstance
+
+  private constructor(
+    orbitdb: OrbitDBInstance,
+    identities: IdentitiesInstance,
+    address: string,
+    write: string[],
+    storage: StorageInstance<any>,
+  ) {
+    this.orbitdb = orbitdb
+    this.identities = identities
+    this.address = address
+    this.write = write
+    this.storage = storage
+  }
+
+  static async create(options: {
+    orbitdb: OrbitDBInstance
+    identities: IdentitiesInstance
+    address?: string
+    write?: string[]
+    storage?: StorageInstance<any>
+  }): Promise<IPFSAccessControllerInstance> {
+    const ipfs = options.orbitdb.ipfs
+    const identities = options.identities
+    const storage =
+      options.storage ||
+      ComposedStorage.create({
+        storage1: LRUStorage.create({ size: 1000 }),
+        storage2: IPFSBlockStorage.create({
+          ipfs,
+          pin: true,
+        }),
+      })
+
+    let address = options.address
+    let write = options.write || [options.orbitdb.identity.id]
+
+    if (address) {
+      const manifestBytes = await storage.get(address.replaceAll('/ipfs/', ''))
+
       const { value } = await Block.decode<{ write: string[] }, 113, 18>({
         bytes: manifestBytes!,
         codec,
         hasher,
       })
-      write_ = value.write
+
+      write = value.write
     } else {
-      address_ = await AccessControlList({
+      address = await AccessControlList({
         type: ACCESS_CONTROLLER_IPFS_TYPE,
-        storage: storage_,
-        params: { write: write_ },
+        storage,
+        params: { write },
       })
-      address_ = join('/', ACCESS_CONTROLLER_IPFS_TYPE, address_)
+      address = join('/', ACCESS_CONTROLLER_IPFS_TYPE, address)
     }
 
-    const canAppend = async (entry: EntryInstance) => {
-      const writerIdentity = await identities.getIdentity(entry.identity!)
-      if (!writerIdentity) {
-        return false
-      }
-      const { id } = writerIdentity
-      // Allow if the write access list contain the writer's id or is '*'
-      if (write_.includes(id) || write_.includes('*')) {
-        // Check that the identity is valid
-        return identities.verifyIdentity(writerIdentity)
-      }
-      return false
-    }
+    const controller = new IPFSAccessController(
+      options.orbitdb,
+      identities,
+      address,
+      write,
+      storage,
+    )
 
-    const accessController: IPFSAccessControllerInstance = {
-      type: ACCESS_CONTROLLER_IPFS_TYPE,
-      address: address_,
-      write: write_,
-      canAppend,
-    }
-
-    return accessController
+    return controller
   }
 
-IPFSAccessController.type = ACCESS_CONTROLLER_IPFS_TYPE
+  async canAppend(entry: EntryInstance): Promise<boolean> {
+    const writerIdentity = await this.identities.getIdentity(entry.identity!)
+    if (!writerIdentity) {
+      return false
+    }
+    const { id } = writerIdentity
+    // Allow if the write access list contain the writer's id or is '*'
+    if (this.write.includes(id) || this.write.includes('*')) {
+      // Check that the identity is valid
+      return this.identities.verifyIdentity(writerIdentity)
+    }
+    return false
+  }
+}

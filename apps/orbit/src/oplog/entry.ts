@@ -25,41 +25,15 @@ export interface EntryInstance<T = unknown> {
   sig?: string
 }
 
-export class Entry<T = unknown> implements EntryInstance<T> {
-  id: string
-  payload: T
-  next: string[]
-  refs: string[]
-  clock: ClockInstance
-  v: number = 2
-  key?: string
-  hash?: string
-  identity?: string
-  bytes?: Uint8Array
-  sig?: string
-
-  private constructor(
-    id: string,
-    payload: T,
-    clock: ClockInstance,
-    next: string[],
-    refs: string[] = [],
-  ) {
-    this.id = id
-    this.payload = payload
-    this.clock = clock
-    this.next = next
-    this.refs = refs
-  }
-
-  static async create<T>(
+export const Entry = {
+  async create<T>(
     identity: IdentityInstance,
     id: string,
     payload: T,
     clock?: ClockInstance,
     next?: Array<string>,
     refs: Array<string> = [],
-  ): Promise<Entry<T>> {
+  ): Promise<EntryInstance<T>> {
     if (!identity) {
       throw new Error('Identity is required, cannot create entry')
     }
@@ -73,20 +47,28 @@ export class Entry<T = unknown> implements EntryInstance<T> {
       throw new Error("'next' argument is not an array")
     }
 
-    const clock_ = clock || new Clock(identity.publicKey)
-    const entry = new Entry(id, payload, clock_, next, refs)
+    const entry: EntryInstance<T> = {
+      id,
+      v: 2,
+      payload,
+      clock: clock || new Clock(identity.publicKey),
+      next,
+      refs,
+    }
 
-    const { bytes } = await Block.encode({ value: entry, codec, hasher })
+    const { bytes, cid } = await Block.encode({ value: entry, codec, hasher })
     const signature = await identity.sign!(bytes)
 
+    entry.hash = cid.toString(hashStringEncoding)
     entry.key = identity.publicKey
     entry.identity = identity.hash
     entry.sig = signature
+    entry.bytes = bytes
 
-    return entry.encode()
-  }
+    return entry
+  },
 
-  static async verify<T>(
+  async verify<T>(
     identities: {
       verify?: (
         signature: string,
@@ -125,9 +107,9 @@ export class Entry<T = unknown> implements EntryInstance<T> {
     })
 
     return identities.verify!(entry.sig, entry.key, bytes)
-  }
+  },
 
-  static isEntry(obj: any): obj is EntryInstance {
+  isEntry(obj: any): obj is EntryInstance {
     return (
       obj &&
       obj.id !== undefined &&
@@ -137,33 +119,28 @@ export class Entry<T = unknown> implements EntryInstance<T> {
       obj.clock !== undefined &&
       obj.refs !== undefined
     )
-  }
+  },
 
-  static isEqual<T>(a: EntryInstance<T>, b: EntryInstance<T>): boolean {
+  isEqual<T>(a: EntryInstance<T>, b: EntryInstance<T>): boolean {
     return a && b && a.hash === b.hash
-  }
+  },
 
-  static async decode<T>(bytes: Uint8Array): Promise<Entry<T>> {
+  async decode<T>(bytes: Uint8Array): Promise<EntryInstance<T>> {
     const { value } = await Block.decode<EntryInstance<T>, 113, 18>({
       bytes,
       codec,
       hasher,
     })
-    return new Entry(
-      value.id,
-      value.payload,
-      value.clock,
-      value.next,
-      value.refs,
-    ).encode()
-  }
 
-  async encode(): Promise<this> {
-    const { cid, bytes } = await Block.encode({ value: this, codec, hasher })
-    this.hash = cid.toString(hashStringEncoding)
-    this.clock = new Clock(this.clock.id, this.clock.time)
-    this.bytes = bytes
+    return value
+  },
 
-    return this
-  }
+  async encode(entry: EntryInstance): Promise<Uint8Array> {
+    const { bytes } = await Block.encode({
+      value: entry,
+      codec,
+      hasher,
+    })
+    return bytes
+  },
 }

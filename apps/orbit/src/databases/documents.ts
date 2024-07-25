@@ -43,20 +43,24 @@ export class DocumentsDatabase<T = unknown> implements DocumentsInstance<T> {
   private database: DatabaseInstance<T>
   public indexBy: string
 
+  get type(): 'documents' {
+    return DATABASE_DOCUMENTS_TYPE
+  }
   static get type(): 'documents' {
     return DATABASE_DOCUMENTS_TYPE
   }
 
-  private constructor(options: DatabaseOptions<T> & DocumentsOptions) {
-    this.database = new Database<T>(options)
-    this.indexBy = options.indexBy || '_id'
+  private constructor(database: DatabaseInstance<T>, indexBy: string) {
+    this.database = database
+    this.indexBy = indexBy
   }
 
   static async create<T>(
     options: DatabaseOptions<T> & DocumentsOptions,
   ): Promise<DocumentsDatabase<T>> {
-    const instance = new DocumentsDatabase<T>(options)
-    return instance
+    const indexBy = options.indexBy || '_id'
+    const database = await Database.create<T>(options)
+    return new DocumentsDatabase<T>(database, indexBy)
   }
 
   get name(): string | undefined {
@@ -182,7 +186,7 @@ export class DocumentsDatabase<T = unknown> implements DocumentsInstance<T> {
   }
 }
 
-export const Documents: DatabaseType<'documents'> = {
+export const Documents: DatabaseType<any, 'documents'> = {
   create: DocumentsDatabase.create,
   type: DATABASE_DOCUMENTS_TYPE,
 }

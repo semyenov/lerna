@@ -12,7 +12,7 @@ export interface LevelStorageOptions {
 export class LevelStorage<T = unknown> implements StorageInstance<T> {
   private level: Level<string, T>
 
-  constructor(
+  private constructor(
     private path: string = STORAGE_LEVEL_PATH,
     private valueEncoding: string = STORAGE_LEVEL_VALUE_ENCODING,
   ) {
@@ -26,7 +26,7 @@ export class LevelStorage<T = unknown> implements StorageInstance<T> {
     options: LevelStorageOptions = {},
   ): Promise<LevelStorage<T>> {
     const storage = new LevelStorage<T>(options.path, options.valueEncoding)
-    await storage.level.open()
+    await storage.level.open() // async
     return storage
   }
 

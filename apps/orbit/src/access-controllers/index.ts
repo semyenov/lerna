@@ -34,27 +34,21 @@ export interface AccessControllerInstance {
   drop?: () => Promise<void>
 }
 
-export type AccessControllerType<
-  T extends string,
-  U extends AccessControllerInstance,
-> = {
-  type: T
-  (
-    options: CreateAccessControllerOptions,
-  ): (options: AccessControllerOptions) => Promise<U>
-}
-
 export type AccessControllerTypeMap = {
   ipfs: IPFSAccessControllerInstance
   orbitdb: OrbitDBAccessControllerInstance
 }
 
+export interface AccessControllerType<D extends keyof AccessControllerTypeMap> {
+  type: D
+  create: (...args: any[]) => Promise<AccessControllerTypeMap[D]>
+}
+
 const accessControllers: Record<
   string,
-  AccessControllerType<
-    keyof AccessControllerTypeMap,
-    AccessControllerTypeMap[keyof AccessControllerTypeMap]
-  >
+  (
+    ...args: any[]
+  ) => Promise<AccessControllerTypeMap[keyof AccessControllerTypeMap]>
 > = {}
 
 export const getAccessController = <D extends keyof AccessControllerTypeMap>(
@@ -67,14 +61,16 @@ export const getAccessController = <D extends keyof AccessControllerTypeMap>(
   return accessControllers[type!]
 }
 
-export const useAccessController = <D extends keyof AccessControllerTypeMap>(
-  accessController: AccessControllerType<D, AccessControllerTypeMap[D]>,
+export const useAccessController = <
+  D extends keyof AccessControllerTypeMap = 'orbitdb',
+>(
+  accessController: AccessControllerType<D>,
 ) => {
   if (!accessController.type) {
     throw new Error("AccessController does not contain required field 'type'.")
   }
 
-  accessControllers[accessController.type] = accessController
+  accessControllers[accessController.type] = accessController.create
 }
 
 useAccessController(IPFSAccessController)

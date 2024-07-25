@@ -29,8 +29,10 @@ export interface IdentityProviderStatic<
 }
 
 export class IdentityProviderRegistry {
-  private static providers: Map<string, IdentityProviderStatic<string, any>> =
-    new Map()
+  private static providers: Map<
+    string,
+    IdentityProviderStatic<string, IdentityProviderInstance>
+  > = new Map()
 
   static isProviderSupported(type: string): boolean {
     return this.providers.has(type)
@@ -38,7 +40,7 @@ export class IdentityProviderRegistry {
 
   static getIdentityProvider(
     type: string,
-  ): IdentityProviderStatic<string, any> {
+  ): IdentityProviderStatic<string, IdentityProviderInstance> {
     if (!this.isProviderSupported(type)) {
       throw new Error(`IdentityProvider type '${type}' is not supported`)
     }

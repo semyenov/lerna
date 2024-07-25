@@ -3,7 +3,7 @@ export type {
   OrbitDBOptions,
   OrbitDBOpenOptions,
 } from './orbitdb.js'
-export { OrbitDB as createOrbitDB, OrbitDBAddress } from './orbitdb.js'
+export { OrbitDB, OrbitDBAddress } from './orbitdb.js'
 
 export {
   Documents,

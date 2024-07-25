@@ -13,9 +13,13 @@ export class LRUStorage<T> implements StorageInstance<T> {
   private lru: LRU<T>
   private readonly size: number
 
-  constructor({ size = STORAGE_LRU_SIZE }: LRUStorageOptions = {}) {
+  private constructor({ size = STORAGE_LRU_SIZE }: LRUStorageOptions = {}) {
     this.size = size
     this.lru = new LRU<T>(this.size)
+  }
+
+  static create<T>(options: LRUStorageOptions = {}): LRUStorage<T> {
+    return new LRUStorage<T>(options)
   }
 
   async put(hash: string, data: T): Promise<void> {
@@ -51,11 +55,5 @@ export class LRUStorage<T> implements StorageInstance<T> {
 
   async close(): Promise<void> {
     // No-op for LRU storage
-  }
-
-  static async create<T>(
-    options: LRUStorageOptions = {},
-  ): Promise<LRUStorage<T>> {
-    return new LRUStorage<T>(options)
   }
 }

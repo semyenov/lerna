@@ -12,9 +12,9 @@ import PQueue from 'p-queue'
 import { TimeoutController } from 'timeout-abort-controller'
 
 import { SYNC_PROTOCOL, SYNC_TIMEOUT } from './constants'
-import { Entry, type EntryInstance } from './oplog/entry.js'
 import { join } from './utils'
 
+import type { EntryInstance } from './oplog/entry.js'
 import type { LogInstance } from './oplog/log'
 import type { HeliaInstance, PeerId } from './vendor'
 import type { Sink, Source } from 'it-stream-types'
@@ -33,12 +33,13 @@ interface SyncOptions<T> {
   start?: boolean
   timestamp?: number
   timeout?: number
-  onSynced?: (peerId: PeerId, heads: EntryInstance<T>[]) => Promise<void>
+  onSynced?: (peerId: PeerId, heads: Uint8Array[]) => Promise<void>
 }
 
 interface SyncInstance<T, E extends SyncEvents<T>> {
   peers: PeerSet
   events: TypedEventEmitter<E>
+
   start: () => Promise<void>
   stop: () => Promise<void>
   add: (entry: EntryInstance<T>) => Promise<void>
@@ -49,10 +50,7 @@ class Sync<T, E extends SyncEvents<T> = SyncEvents<T>>
 {
   private ipfs: HeliaInstance
   private log: LogInstance<T>
-  private onSynced?: (
-    peerId: PeerId,
-    heads: EntryInstance<T>[],
-  ) => Promise<void>
+  private onSynced?: (peerId: PeerId, heads: Uint8Array[]) => Promise<void>
   private timeout: number
   private queue: PQueue
   private started: boolean
@@ -87,7 +85,6 @@ class Sync<T, E extends SyncEvents<T> = SyncEvents<T>>
       new CustomEvent('join', { detail: { peerId, heads } }),
     )
   }
-
   private async *headsIterator(): AsyncGenerator<Uint8Array> {
     const heads = await this.log.heads()
     for await (const { bytes } of heads) {
@@ -95,8 +92,8 @@ class Sync<T, E extends SyncEvents<T> = SyncEvents<T>>
     }
   }
 
-  private sendHeads(): Source<Uint8Array> {
-    return this.headsIterator()
+  private sendHeads(): () => Source<Uint8Array> {
+    return () => this.headsIterator()
   }
 
   private receiveHeads(
@@ -124,9 +121,10 @@ class Sync<T, E extends SyncEvents<T> = SyncEvents<T>>
     const peerId = connection.remotePeer
     try {
       this.peers.add(peerId)
-      await pipe(stream, this.receiveHeads(peerId), this.sendHeads, stream)
+      await pipe(stream, this.receiveHeads(peerId), this.sendHeads(), stream)
     } catch (error) {
       this.peers.delete(peerId)
+      console.error('error', error)
       this.events.dispatchEvent(new ErrorEvent('error', { error }))
     }
   }
@@ -158,7 +156,7 @@ class Sync<T, E extends SyncEvents<T> = SyncEvents<T>>
             this.headsSyncAddress,
             { signal },
           )
-          pipe(this.sendHeads, stream, this.receiveHeads(peerId))
+          pipe(this.sendHeads(), stream, this.receiveHeads(peerId))
         } catch (error: any) {
           console.error(error)
           this.peers.delete(peerId)
@@ -175,6 +173,7 @@ class Sync<T, E extends SyncEvents<T> = SyncEvents<T>>
         )
       }
     }
+
     this.queue.add(task)
   }
 
@@ -187,7 +186,7 @@ class Sync<T, E extends SyncEvents<T> = SyncEvents<T>>
       try {
         const detail = message.detail as SignedMessage
         if (detail.from && data && this.onSynced) {
-          await this.onSynced(detail.from as PeerId, [await Entry.decode(data)])
+          await this.onSynced(detail.from as PeerId, [data])
         }
       } catch (error) {
         console.error('error', error)

@@ -9,14 +9,12 @@ export class ComposedStorage<T> implements StorageInstance<T> {
   private readonly storage1: StorageInstance<T>
   private readonly storage2: StorageInstance<T>
 
-  constructor(options: ComposedStorageOptions<T>) {
+  private constructor(options: ComposedStorageOptions<T>) {
     this.storage1 = options.storage1
     this.storage2 = options.storage2
   }
 
-  static async create<T>(
-    options: ComposedStorageOptions<T>,
-  ): Promise<ComposedStorage<T>> {
+  static create<T>(options: ComposedStorageOptions<T>): ComposedStorage<T> {
     return new ComposedStorage<T>(options)
   }
 
@@ -28,6 +26,7 @@ export class ComposedStorage<T> implements StorageInstance<T> {
   async get(hash: string): Promise<T | null> {
     let value = await this.storage1.get(hash)
     if (!value) {
+      console.log('storage1 is empty, getting from storage2', hash)
       value = await this.storage2.get(hash)
       if (value) {
         await this.storage1.put(hash, value)

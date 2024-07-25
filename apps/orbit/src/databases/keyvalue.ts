@@ -42,6 +42,7 @@ export interface KeyValueEntry<T> {
 }
 
 export interface KeyValueInstance<T> extends DatabaseInstance<T> {
+  type: 'keyvalue'
   indexBy?: string
 
   put: (key: string, value: T) => Promise<string>
@@ -55,19 +56,22 @@ export interface KeyValueInstance<T> extends DatabaseInstance<T> {
 export class KeyValueDatabase<T = unknown> implements KeyValueInstance<T> {
   private database: DatabaseInstance<T>
 
+  get type(): 'keyvalue' {
+    return DATABASE_KEYVALUE_TYPE
+  }
   static get type(): 'keyvalue' {
     return DATABASE_KEYVALUE_TYPE
   }
 
-  constructor(options: KeyValueDatabaseOptions<T>) {
-    this.database = new Database<T>(options)
+  private constructor(database: DatabaseInstance<T>) {
+    this.database = database
   }
 
   static async create<T>(
     options: KeyValueDatabaseOptions<T>,
   ): Promise<KeyValueDatabase<T>> {
-    const instance = new KeyValueDatabase<T>(options)
-    return instance
+    const database = await Database.create<T>(options)
+    return new KeyValueDatabase<T>(database)
   }
 
   get indexBy(): string | undefined {
@@ -179,7 +183,7 @@ export class KeyValueDatabase<T = unknown> implements KeyValueInstance<T> {
   }
 }
 
-export const KeyValue: DatabaseType<'keyvalue'> = {
+export const KeyValue: DatabaseType<any, 'keyvalue'> = {
   create: KeyValueDatabase.create,
   type: DATABASE_KEYVALUE_TYPE,
 }

@@ -1,12 +1,14 @@
 import type { StorageInstance } from './types'
 
-export type MemoryStorageOptions = Record<never, never>
-
 export class MemoryStorage<T = unknown> implements StorageInstance<T> {
   private memory: Map<string, T>
 
   constructor() {
     this.memory = new Map()
+  }
+
+  static create<T>(): MemoryStorage<T> {
+    return new MemoryStorage<T>()
   }
 
   async put(hash: string, data: T): Promise<void> {
@@ -42,10 +44,4 @@ export class MemoryStorage<T = unknown> implements StorageInstance<T> {
   async close(): Promise<void> {
     // No-op for memory storage
   }
-}
-
-export const createMemoryStorage = async <T = unknown>(): Promise<
-  MemoryStorage<T>
-> => {
-  return new MemoryStorage<T>()
 }

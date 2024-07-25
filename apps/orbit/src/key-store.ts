@@ -25,6 +25,16 @@ export interface KeyStoreInstance {
   close: () => Promise<void>
 }
 
+const VERIFIED_CACHE_STORAGE = LRUStorage.create<{
+  publicKey: string
+  data: string
+}>({ size: 1000 })
+
+const unmarshal =
+  crypto.keys.supportedKeys.secp256k1.unmarshalSecp256k1PrivateKey
+const unmarshalPubKey =
+  crypto.keys.supportedKeys.secp256k1.unmarshalSecp256k1PublicKey
+
 export class KeyStore implements KeyStoreInstance {
   private storage: StorageInstance<Uint8Array>
 
@@ -32,18 +42,16 @@ export class KeyStore implements KeyStoreInstance {
     this.storage = storage
   }
 
-  static async create({
-    storage,
-    path = KEYSTORE_PATH,
-  }: KeyStoreOptions): Promise<KeyStore> {
-    const storage_: StorageInstance<Uint8Array> =
-      storage ||
-      new ComposedStorage<Uint8Array>({
-        storage1: new LRUStorage<Uint8Array>({ size: 1000 }),
-        storage2: new LevelStorage<Uint8Array>(path),
+  static async create(options: KeyStoreOptions): Promise<KeyStore> {
+    const path = options.path || KEYSTORE_PATH
+    const storage: StorageInstance<Uint8Array> =
+      options.storage ||
+      ComposedStorage.create<Uint8Array>({
+        storage1: LRUStorage.create({ size: 1000 }),
+        storage2: await LevelStorage.create({ path }),
       })
 
-    return new KeyStore(storage_)
+    return new KeyStore(storage)
   }
 
   async clear(): Promise<void> {
@@ -115,17 +123,11 @@ export class KeyStore implements KeyStoreInstance {
   }
 }
 
-const VERIFIED_CACHE_STORAGE = new LRUStorage<{
-  publicKey: string
-  data: string
-}>({ size: 1000 })
-
-const unmarshal =
-  crypto.keys.supportedKeys.secp256k1.unmarshalSecp256k1PrivateKey
-const unmarshalPubKey =
-  crypto.keys.supportedKeys.secp256k1.unmarshalSecp256k1PublicKey
-
-async function verify(publicKey: string, data: string, signature: string) {
+async function verify(
+  publicKey: string,
+  signature: string,
+  data: Uint8Array | string,
+) {
   const pubKey = unmarshalPubKey(uint8ArrayFromString(publicKey, 'base16'))
 
   if (!pubKey) {
@@ -133,7 +135,7 @@ async function verify(publicKey: string, data: string, signature: string) {
   }
 
   return pubKey.verify(
-    uint8ArrayFromString(data, 'utf8'),
+    uint8ArrayFromString(data.toString(), 'utf8'),
     uint8ArrayFromString(signature, 'base16'),
   )
 }
@@ -141,7 +143,7 @@ async function verify(publicKey: string, data: string, signature: string) {
 async function verifySignature(
   signature: string,
   publicKey: string,
-  data: string,
+  data: Uint8Array | string,
 ) {
   if (!signature) {
     throw new Error('No signature given')
@@ -153,7 +155,7 @@ async function verifySignature(
     throw new Error('Given input data was undefined')
   }
 
-  return verify(publicKey, data, signature)
+  return verify(publicKey, signature, data)
 }
 
 export async function signMessage(
@@ -192,7 +194,7 @@ export async function verifyMessage(
     return verified
   }
 
-  const compare = (cached: Uint8Array, data: string | Uint8Array) => {
+  const compare = (cached: Uint8Array, data: Uint8Array | string) => {
     return data instanceof Uint8Array
       ? uint8ArrayCompare(cached, data) === 0
       : cached.toString() === data

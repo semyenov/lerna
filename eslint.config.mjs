@@ -8,6 +8,9 @@ import config from '@regioni/eslint-config'
 const eslintConfig = [
   ...config,
   {
+    rules: {
+      'no-unused-vars': 'off',
+    },
     ignores: [
       'node_modules',
       'packages/*/node_modules',

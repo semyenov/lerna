@@ -2,6 +2,7 @@ import { type GossipSub, gossipsub } from '@chainsafe/libp2p-gossipsub'
 import { noise } from '@chainsafe/libp2p-noise'
 import { yamux } from '@chainsafe/libp2p-yamux'
 import { bitswap } from '@helia/block-brokers'
+import { bootstrap } from '@libp2p/bootstrap'
 import {
   circuitRelayServer,
   circuitRelayTransport,
@@ -17,7 +18,7 @@ import { LevelBlockstore } from 'blockstore-level'
 import { createHelia } from 'helia'
 import { type Libp2pOptions, createLibp2p } from 'libp2p'
 
-import { createOrbitDB } from './index.js'
+import { OrbitDB } from './index.js'
 
 const logger = createLogger({
   defaultMeta: {
@@ -33,24 +34,31 @@ const options: Libp2pOptions<{
   addresses: {
     listen: ['/ip4/127.0.0.1/tcp/0/ws'],
   },
-  logger: {
-    forComponent(name: string) {
-      const l = (formatter: any, ...args: any) => {
-        logger.info(formatter, { label: name, ...args })
-      }
+  // logger: {
+  //   forComponent(name: string) {
+  //     const l = (formatter: string, ...args: []) => {
+  //       logger.info(formatter, { label: name, ...args })
+  //     }
 
-      l.enabled = true
-      l.error = (formatter: any, ...args: any[]) => {
-        logger.error(formatter, { label: name, ...args })
-      }
-      l.trace = (formatter: any, ...args: any[]) => {
-        logger.debug(formatter, { label: name, ...args })
-      }
+  //     l.enabled = true
+  //     l.error = (formatter: string, ...args: []) => {
+  //       logger.error(formatter, { label: name, ...args })
+  //     }
+  //     l.trace = (formatter: string, ...args: []) => {
+  //       logger.debug(formatter, { label: name, ...args })
+  //     }
 
-      return l
-    },
-  },
-  peerDiscovery: [mdns()],
+  //     return l
+  //   },
+  // },
+  peerDiscovery: [
+    mdns(),
+    bootstrap({
+      list: [
+        '/ip4/192.168.10.53/tcp/41613/ws/p2p/12D3KooWHrQf4KmPEJEwY53NdzQ5woniNq6Jt7So8fEYScjUWeQQ',
+      ],
+    }),
+  ],
   transports: [
     tcp(),
     webRTC(),
@@ -80,27 +88,26 @@ const main = async () => {
     blockstore: new LevelBlockstore(`${directory}/ipfs/blocks`),
     blockBrokers: [bitswap()],
   })
-  const orbit = await createOrbitDB({
+  const orbit = await OrbitDB.create({
     id: 'test',
     directory: './orbitdb',
     ipfs,
   })
 
   const db = await orbit.open<{ _id: string; test: string }, 'documents'>(
-    'test',
-    {
-      type: 'documents',
-    },
+    'documents',
+    '/orbitdb/zdpuAqDgvEBDFh2xdNMwzAYJXg17J46Z25yMYHsMuiZpJcbT6',
   )
-  db.events.on('update', (entry) => {
+
+  db.events.addEventListener('update', (entry) => {
     console.log(entry)
   })
 
   console.log(db)
   db.put({ _id: 'test', test: 'test' })
 
-  const result = await db.get('test')
-  console.log(result)
+  // const result = await db.get('test')
+  // console.log(result)
 }
 
 main()

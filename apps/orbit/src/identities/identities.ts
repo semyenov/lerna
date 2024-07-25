@@ -13,17 +13,13 @@ import {
 import { join } from '../utils'
 
 import { Identity, type IdentityInstance } from './identity.js'
-import {
-  type IdentityProvider,
-  type IdentityProviderInstance,
-  getIdentityProvider,
-} from './providers'
+import { type IdentityProviderInstance, IdentityProviders } from './providers'
 
 import type { HeliaInstance } from '../vendor.js'
 
 interface IdentitiesCreateIdentityOptions {
   id?: string
-  provider?: ReturnType<IdentityProvider<string, IdentityProviderInstance>>
+  provider?: IdentityProviderInstance
 }
 
 export interface IdentitiesOptions {
@@ -74,9 +70,9 @@ export class Identities implements IdentitiesInstance {
 
     const db: StorageInstance<Uint8Array> = options.storage
       ? options.storage
-      : await ComposedStorage.create({
-          storage1: await LRUStorage.create<Uint8Array>({ size: 1000 }),
-          storage2: await IPFSBlockStorage.create({
+      : ComposedStorage.create({
+          storage1: LRUStorage.create<Uint8Array>({ size: 1000 }),
+          storage2: IPFSBlockStorage.create({
             ipfs: options.ipfs,
             pin: true,
           }),
@@ -91,15 +87,14 @@ export class Identities implements IdentitiesInstance {
 
   async createIdentity(
     options: IdentitiesCreateIdentityOptions = {},
-  ): Promise<IdentityInstance> {
-    const DefaultIdentityProvider = getIdentityProvider('publickey')
-    const identityProviderInit =
-      options.provider || DefaultIdentityProvider({ keystore: this.keystore })
-
+  ): Promise<Identity> {
+    const DefaultIdentityProvider =
+      IdentityProviders.getIdentityProvider('publickey')
     const identityProvider: IdentityProviderInstance =
-      await identityProviderInit()
+      options.provider ||
+      new DefaultIdentityProvider({ keystore: this.keystore })
 
-    if (!getIdentityProvider(identityProvider.type)) {
+    if (!IdentityProviders.getIdentityProvider(identityProvider.type)) {
       throw new Error(
         'Identity provider is unknown. Use useIdentityProvider(provider) to register the identity provider',
       )
@@ -131,7 +126,7 @@ export class Identities implements IdentitiesInstance {
         }
         return await signMessage(signingKey, data)
       },
-      verify: async (signature: string, data: string) => {
+      verify: async (data: string, signature: string) => {
         return await verifyMessage(signature, publicKey, data)
       },
     })
@@ -163,8 +158,7 @@ export class Identities implements IdentitiesInstance {
       return Identity.isEqual(identity, verifiedIdentity)
     }
 
-    const Provider = getIdentityProvider(identity.type)
-
+    const Provider = IdentityProviders.getIdentityProvider(identity.type)
     const identityVerified = await Provider.verifyIdentity(identity)
     if (identityVerified) {
       await this.verifiedIdentitiesCache.put(signatures.id, identity)

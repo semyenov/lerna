@@ -19,7 +19,7 @@ export class IPFSBlockStorage<T = unknown> implements StorageInstance<T> {
   private readonly pin: boolean
   private readonly timeout: number
 
-  constructor(options: IPFSBlockStorageOptions) {
+  private constructor(options: IPFSBlockStorageOptions) {
     if (!options.ipfs) {
       throw new Error('An instance of ipfs is required.')
     }
@@ -28,9 +28,9 @@ export class IPFSBlockStorage<T = unknown> implements StorageInstance<T> {
     this.timeout = options.timeout || STORAGE_IPFS_BLOCKSTORAGE_TIMEOUT
   }
 
-  static async create<T = unknown>(
+  static create<T = unknown>(
     options: IPFSBlockStorageOptions,
-  ): Promise<IPFSBlockStorage<T>> {
+  ): IPFSBlockStorage<T> {
     return new IPFSBlockStorage<T>(options)
   }
 
@@ -51,6 +51,7 @@ export class IPFSBlockStorage<T = unknown> implements StorageInstance<T> {
   async get(hash: string): Promise<T | null> {
     const cid = CID.parse(hash, base58btc)
     const { signal } = new TimeoutController(this.timeout)
+    console.log('getting block from ipfs', hash, cid)
     const block = await this.ipfs.blockstore.get(cid, { signal })
     return block || null
   }

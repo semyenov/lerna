@@ -35,22 +35,32 @@ export interface DatabaseTypeMap<T = unknown> {
   'keyvalue-indexed': KeyValueIndexedDatabase<T>
 }
 
-export type DatabaseType<T = unknown> = {
-  type: string
-  create: (...args: any[]) => Promise<DatabaseTypeMap[keyof DatabaseTypeMap<T>]>
+export interface DatabaseType<T, D extends keyof DatabaseTypeMap<T>> {
+  type: D
+  create: (...args: any[]) => Promise<DatabaseTypeMap<T>[D]>
 }
 
-const databaseTypes: Record<string, DatabaseType> = {}
+const databaseTypes: Record<
+  string,
+  () => Promise<DatabaseTypeMap<any>[keyof DatabaseTypeMap<any>]>
+> = {}
 
-export const useDatabaseType = (database: DatabaseType) => {
+export const useDatabaseType = <T, D extends keyof DatabaseTypeMap<T>>(
+  database: DatabaseType<T, D>,
+) => {
   if (!database.type) {
     throw new Error("Database type does not contain required field 'type'.")
   }
 
-  databaseTypes[database.type] = database
+  databaseTypes[database.type] = database.create
 }
 
-export const getDatabaseType = (type: string) => {
+export const getDatabaseType = <
+  T = unknown,
+  D extends keyof DatabaseTypeMap<T> = 'events',
+>(
+  type: D,
+) => {
   if (!type) {
     throw new Error('Type not specified')
   }

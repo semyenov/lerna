@@ -64,7 +64,6 @@ export interface DatabaseInstance<
   name?: string
   address?: string
   indexBy?: string
-  // type: string
   peers: PeerSet
   meta: any
   log: LogInstance<DatabaseOperation<T>>
@@ -73,20 +72,18 @@ export interface DatabaseInstance<
   identity: IdentityInstance
   accessController: AccessControllerInstance
   addOperation: (op: DatabaseOperation<T>) => Promise<string>
-  iterator: () => AsyncIterableIterator<EntryInstance<T>>
   close: () => Promise<void>
   drop: () => Promise<void>
 }
 
 export class Database<
-  T = any,
+  T = unknown,
   E extends DatabaseEvents<T> = DatabaseEvents<T> & SyncEvents<T>,
 > implements DatabaseInstance<T, E>
 {
   public name?: string
   public address?: string
   public indexBy?: string
-  public type: string = 'database'
   public peers: PeerSet
   public meta: any
   public log: LogInstance<DatabaseOperation<T>>
@@ -104,63 +101,103 @@ export class Database<
     entry: EntryInstance<T> | EntryInstance<DatabaseOperation<T>>,
   ) => Promise<void>
 
-  constructor(options: DatabaseOptions<T>) {
-    this.meta = options.meta || {}
-    this.name = options.name
-    this.address = options.address
-    this.identity = options.identity!
-    this.accessController = options.accessController!
-    this.onUpdate = options.onUpdate
+  private constructor(
+    ipfs: HeliaInstance,
+
+    identity: IdentityInstance,
+    accessController: AccessControllerInstance,
+    log: LogInstance<DatabaseOperation<T>>,
+    syncAutomatically: boolean,
+
+    name?: string,
+    address?: string,
+    meta?: any,
+    onUpdate?: (
+      log: LogInstance<DatabaseOperation<T>>,
+      entry: EntryInstance<T> | EntryInstance<DatabaseOperation<T>>,
+    ) => Promise<void>,
+  ) {
+    this.meta = meta
+    this.name = name
+    this.address = address
+    this.identity = identity
+    this.accessController = accessController
+    this.onUpdate = onUpdate
     this.events = new TypedEventEmitter<DatabaseEvents<T>>()
     this.queue = new PQueue({ concurrency: 1 })
 
-    const path = join(options.directory || DATABASE_PATH, `./${this.address}/`)
+    this.log = log
+    this.sync = new Sync({
+      ipfs,
+      log,
+      start: syncAutomatically ?? true,
+      onSynced: async (peerId, heads) => {
+        console.log('onSynced', peerId, heads)
+        for (const head of heads) {
+          await this.applyOperation(head)
+        }
+      },
+      // onSynced: this.applyOperation.bind(this),
+    })
+    this.peers = this.sync.peers
+  }
+
+  static async create<T>(options: DatabaseOptions<T>) {
+    const ipfs = options.ipfs
+    const meta = options.meta || {}
+    const name = options.name
+    const address = options.address
+    const identity = options.identity!
+    const accessController = options.accessController!
+    const onUpdate = options.onUpdate
+    const syncAutomatically = options.syncAutomatically ?? true
+
+    const path = join(options.directory || DATABASE_PATH, `./${address}/`)
 
     const entryStorage =
       options.entryStorage ||
-      new ComposedStorage({
-        storage1: new LRUStorage({ size: DATABASE_CACHE_SIZE }),
-        storage2: new IPFSBlockStorage({ ipfs: options.ipfs, pin: true }),
+      ComposedStorage.create({
+        storage1: LRUStorage.create({ size: DATABASE_CACHE_SIZE }),
+        storage2: IPFSBlockStorage.create({ ipfs: options.ipfs, pin: true }),
       })
 
     const headsStorage =
       options.headsStorage ||
-      new ComposedStorage({
-        storage1: new LRUStorage({ size: DATABASE_CACHE_SIZE }),
-        storage2: new LevelStorage(join(path, '/log/_heads/')),
+      ComposedStorage.create({
+        storage1: LRUStorage.create({ size: DATABASE_CACHE_SIZE }),
+        storage2: await LevelStorage.create({
+          path: join(path, '/log/_heads/'),
+        }),
       })
 
     const indexStorage =
       options.indexStorage ||
-      new ComposedStorage({
-        storage1: new LRUStorage({ size: DATABASE_CACHE_SIZE }),
-        storage2: new LevelStorage(join(path, '/log/_index/')),
+      ComposedStorage.create({
+        storage1: LRUStorage.create({ size: DATABASE_CACHE_SIZE }),
+        storage2: await LevelStorage.create({
+          path: join(path, '/log/_index/'),
+        }),
       })
 
-    this.log = new Log<DatabaseOperation<T>>(this.identity, {
-      logId: this.address,
-      accessController: this.accessController,
+    const log = new Log<DatabaseOperation<T>>(identity, {
+      logId: address,
+      accessController,
       entryStorage,
       headsStorage,
       indexStorage,
     })
 
-    this.sync = new Sync({
-      ipfs: options.ipfs,
-      log: this.log,
-      start: options.syncAutomatically ?? true,
-      onSynced: this.applyOperation.bind(this) as unknown as (
-        peerId: PeerId,
-        heads: EntryInstance<DatabaseOperation<T>>[],
-      ) => Promise<void>,
-    })
-
-    this.peers = this.sync.peers
-  }
-
-  static async create<T>(options: DatabaseOptions<T>): Promise<Database<T>> {
-    const database = new Database<T>(options)
-    return database
+    return new Database(
+      ipfs,
+      identity,
+      accessController,
+      log,
+      syncAutomatically,
+      name,
+      address,
+      meta,
+      onUpdate,
+    )
   }
 
   private async applyOperation(bytes: Uint8Array): Promise<void> {

@@ -1,6 +1,9 @@
 export interface ClockInstance {
   id: string
   time: number
+
+  tick: () => ClockInstance
+  clone: () => ClockInstance
 }
 
 export class Clock implements ClockInstance {

@@ -1,19 +1,18 @@
-import { TypedEventEmitter } from '@libp2p/interface'
-
 import { ACCESS_CONTROLLER_ORBITDB_TYPE } from '../constants.js'
 import { createId } from '../utils/index.js'
 
 import { IPFSAccessController } from './ipfs.js'
 
-import type { AccessControllerInstance, AccessControllerType } from './index.js'
-import type { DatabaseEvents, DatabaseInstance } from '../database.js'
-import type { DatabaseType } from '../databases/index.js'
+import type { AccessControllerInstance } from './index.js'
+import type { DatabaseEvents } from '../database.js'
+import type { DatabaseTypeMap } from '../databases/index.js'
 import type { IdentitiesInstance } from '../identities/index.js'
 import type { EntryInstance } from '../oplog/entry.js'
 import type { OrbitDBInstance } from '../orbitdb.js'
+import type { TypedEventEmitter } from '@libp2p/interface'
 
 export interface OrbitDBAccessControllerInstance<
-  E extends DatabaseEvents<Record<string, string[]>>,
+  E extends DatabaseEvents<string[]> = DatabaseEvents<string[]>,
 > extends AccessControllerInstance {
   type: string
   events: TypedEventEmitter<E>
@@ -38,50 +37,57 @@ interface OrbitDBAccessControllerOptions {
 }
 
 export class OrbitDBAccessController
-  implements
-    OrbitDBAccessControllerInstance<DatabaseEvents<Record<string, string[]>>>
+  implements OrbitDBAccessControllerInstance<DatabaseEvents<string[]>>
 {
-  static type = ACCESS_CONTROLLER_ORBITDB_TYPE
-
-  type: string
-  events: TypedEventEmitter<DatabaseEvents<Record<string, string[]>>>
-  address: string
-  write: string[]
-  private db: DatabaseInstance<
-    Record<string, string[]>,
-    DatabaseEvents<Record<string, string[]>>
-  >
-  private orbitdb: OrbitDBInstance
-  private identities: IdentitiesInstance
-
-  constructor({
-    orbitdb,
-    identities,
-    address,
-    name,
-    write,
-  }: OrbitDBAccessControllerOptions) {
-    this.type = ACCESS_CONTROLLER_ORBITDB_TYPE
-    this.orbitdb = orbitdb
-    this.identities = identities
-    this.write = write || [orbitdb.identity.id]
-    this.address = address || name || ''
-    this.events = new TypedEventEmitter<
-      DatabaseEvents<Record<string, string[]>>
-    >()
+  get type(): 'orbitdb' {
+    return ACCESS_CONTROLLER_ORBITDB_TYPE
+  }
+  static get type(): 'orbitdb' {
+    return ACCESS_CONTROLLER_ORBITDB_TYPE
   }
 
-  async initialize(): Promise<void> {
-    const address_ = this.address || (await createId(64))
-    this.db = await this.orbitdb.open<Record<string, string[]>, 'keyvalue'>(
-      address_,
+  public address: string
+  public write: string[]
+  public events: TypedEventEmitter<DatabaseEvents<string[]>>
+
+  private database: DatabaseTypeMap<string[]>['keyvalue']
+  private identities: IdentitiesInstance
+
+  private constructor(
+    orbitdb: OrbitDBInstance,
+    identities: IdentitiesInstance,
+    database: DatabaseTypeMap<string[]>['keyvalue'],
+    address: string,
+    write?: string[],
+  ) {
+    this.identities = identities
+    this.database = database
+    this.write = write || [orbitdb.identity.id]
+    this.address = address
+    this.events = database.events
+  }
+
+  static async create(
+    options: OrbitDBAccessControllerOptions,
+  ): Promise<OrbitDBAccessControllerInstance<DatabaseEvents<string[]>>> {
+    const { orbitdb, identities, name, write } = options
+    const address = options.address || name || (await createId(64))
+    const database = await options.orbitdb.open<string[], 'keyvalue'>(
+      'keyvalue',
+      address,
       {
         type: 'keyvalue',
-        AccessController: IPFSAccessController({ write: this.write }),
+        AccessController: IPFSAccessController.create,
       },
     )
-    this.address = this.db.address!
-    this.events = this.db.events
+
+    return new OrbitDBAccessController(
+      orbitdb,
+      identities,
+      database,
+      address,
+      write,
+    )
   }
 
   async canAppend(entry: EntryInstance): Promise<boolean> {
@@ -102,75 +108,62 @@ export class OrbitDBAccessController
   }
 
   async capabilities(): Promise<Record<string, Set<string>>> {
-    const _capabilities: Record<string, Set<string>> = {}
-    for await (const { key, value } of this.db.iterator()) {
-      _capabilities[key!] = new Set(value)
+    const caps: Record<string, Set<string>> = {}
+    for await (const { key, value } of this.database.iterator()) {
+      caps[key!] = new Set(value)
     }
 
     const toSet = (e: [string, Set<string>]) => {
       const key = e[0]
-      _capabilities[key!] = new Set([...(_capabilities[key!] || []), ...e[1]])
+      caps[key!] = new Set([...(caps[key!] || []), ...e[1]])
     }
 
     Object.entries({
-      ..._capabilities,
+      ...caps,
       ...{
         admin: new Set([
-          ...(_capabilities.admin || []),
-          ...this.db.accessController.write,
+          ...(caps.admin || []),
+          ...this.database.accessController.write,
         ]),
       },
     }).forEach(toSet)
 
-    return _capabilities
+    return caps
   }
 
   async get(capability: string): Promise<Set<string>> {
-    const _capabilities = await this.capabilities()
-    return _capabilities[capability!] || new Set([])
+    const caps = await this.capabilities()
+    return caps[capability!] || new Set([])
   }
 
   async close(): Promise<void> {
-    await this.db.close()
+    await this.database.close()
   }
 
   async drop(): Promise<void> {
-    await this.db.drop()
+    await this.database.drop()
   }
 
   async hasCapability(capability: string, key: string): Promise<boolean> {
-    const access = new Set(await this.get(capability))
+    const access = await this.get(capability)
     return access.has(key) || access.has('*')
   }
 
   async grant(capability: string, key: string): Promise<void> {
-    const capabilities = new Set([
-      ...((await this.db.get(capability)) || []),
+    const caps = new Set([
+      ...((await this.database.get(capability)) || []),
       key,
     ])
-    await this.db.put(capability, Array.from(capabilities))
+    await this.database.put(capability, Array.from(caps))
   }
 
   async revoke(capability: string, key: string): Promise<void> {
-    const capabilities = new Set((await this.db.get(capability)) || [])
-    capabilities.delete(key)
-    if (capabilities.size > 0) {
-      await this.db.put(capability, Array.from(capabilities))
+    const caps = new Set((await this.database.get(capability)) || [])
+    caps.delete(key)
+    if (caps.size > 0) {
+      await this.database.put(capability, Array.from(caps))
     } else {
-      await this.db.del(capability)
+      await this.database.del(capability)
     }
   }
 }
-
-export const createOrbitDBAccessController: AccessControllerType<
-  'orbitdb',
-  OrbitDBAccessControllerInstance
-> =
-  ({ write }: { write?: string[] }) =>
-  async (options: OrbitDBAccessControllerOptions) => {
-    const controller = new OrbitDBAccessController({ ...options, write })
-    await controller.initialize()
-    return controller
-  }
-
-createOrbitDBAccessController.type = ACCESS_CONTROLLER_ORBITDB_TYPE

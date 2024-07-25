@@ -19,20 +19,27 @@ class Index<T> {
   private index: LevelStorage<EntryInstance<DatabaseOperation<T>>>
   private indexedEntries: LevelStorage<boolean>
 
-  constructor(directory?: string) {
-    this.index = new LevelStorage<EntryInstance<DatabaseOperation<T>>>(
-      directory,
-      DATABASE_KEYVALUE_INDEXED_VALUE_ENCODING,
-    )
-    this.indexedEntries = new LevelStorage<boolean>(
-      join(directory || './orbitdb', `/_indexedEntries/`),
-      DATABASE_KEYVALUE_INDEXED_VALUE_ENCODING,
-    )
+  private constructor(
+    index: LevelStorage<EntryInstance<DatabaseOperation<T>>>,
+    indexedEntries: LevelStorage<boolean>,
+  ) {
+    this.index = index
+    this.indexedEntries = indexedEntries
   }
 
   static async create<T>(directory?: string): Promise<Index<T>> {
-    const instance = new Index<T>(directory)
-    return instance
+    const index = await LevelStorage.create<
+      EntryInstance<DatabaseOperation<T>>
+    >({
+      path: directory,
+      valueEncoding: DATABASE_KEYVALUE_INDEXED_VALUE_ENCODING,
+    })
+    const indexedEntries = await LevelStorage.create<boolean>({
+      path: join(directory || './orbitdb', `/_indexedEntries/`),
+      valueEncoding: DATABASE_KEYVALUE_INDEXED_VALUE_ENCODING,
+    })
+
+    return new Index<T>(index, indexedEntries)
   }
 
   async update(
@@ -102,7 +109,9 @@ export interface KeyValueIndexedOptions<T> {
 }
 
 export interface KeyValueIndexedInstance<T = unknown>
-  extends DatabaseInstance<T> {}
+  extends DatabaseInstance<T> {
+  type: 'keyvalue-indexed'
+}
 
 export class KeyValueIndexedDatabase<T = unknown>
   implements KeyValueIndexedInstance<T>
@@ -110,6 +119,9 @@ export class KeyValueIndexedDatabase<T = unknown>
   private keyValueStore: KeyValueInstance<T>
   private index: Index<T>
 
+  get type(): 'keyvalue-indexed' {
+    return DATABASE_KEYVALUE_INDEXED_TYPE
+  }
   static get type(): 'keyvalue-indexed' {
     return DATABASE_KEYVALUE_INDEXED_TYPE
   }
@@ -143,7 +155,7 @@ export class KeyValueIndexedDatabase<T = unknown>
     )
 
     const index = await Index.create<T>(indexDirectory)
-    const keyValueStore = new KeyValueDatabase<T>({
+    const keyValueStore = await KeyValueDatabase.create({
       ipfs,
       identity,
       address,
@@ -253,7 +265,7 @@ export class KeyValueIndexedDatabase<T = unknown>
   // Add any other methods from KeyValueInstance that need to be implemented
 }
 
-export const KeyValueIndexed: DatabaseType<'keyvalue-indexed'> = {
+export const KeyValueIndexed: DatabaseType<any, 'keyvalue-indexed'> = {
   create: KeyValueIndexedDatabase.create,
   type: DATABASE_KEYVALUE_INDEXED_TYPE,
 }

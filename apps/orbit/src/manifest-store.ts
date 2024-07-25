@@ -42,15 +42,12 @@ export class ManifestStore implements ManifestStoreInstance {
     this.storage = storage
   }
 
-  static async create({
-    ipfs,
-    storage,
-  }: ManifestStoreOptions = {}): Promise<ManifestStore> {
+  static create({ ipfs, storage }: ManifestStoreOptions = {}): ManifestStore {
     const storage_ =
       storage ||
-      new ComposedStorage<Uint8Array>({
-        storage1: new LRUStorage<Uint8Array>({ size: 1000 }),
-        storage2: new IPFSBlockStorage<Uint8Array>({ ipfs, pin: true }),
+      ComposedStorage.create<Uint8Array>({
+        storage1: LRUStorage.create({ size: 1000 }),
+        storage2: IPFSBlockStorage.create({ ipfs, pin: true }),
       })
 
     return new ManifestStore(storage_)

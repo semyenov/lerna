@@ -432,6 +432,7 @@ __metadata:
     nanoid: "npm:^5.0.7"
     p-queue: "npm:^8.0.1"
     pkgroll: "npm:^2.4.1"
+    printf-ts: "npm:^2.0.1"
     protons-runtime: "npm:5.4.0"
     remeda: "npm:^2.6.0"
     timeout-abort-controller: "npm:^3.0.0"
@@ -13216,6 +13217,13 @@ __metadata:
   bin:
     prettier: bin/prettier.cjs
   checksum: 10/5beac1f30b5b40162532b8e2f7c3a4eb650910a2695e9c8512a62ffdc09dae93190c29db9107fa7f26d1b6c71aad3628ecb9b5de1ecb0911191099be109434d7
+  languageName: node
+  linkType: hard
+
+"printf-ts@npm:^2.0.1":
+  version: 2.0.1
+  resolution: "printf-ts@npm:2.0.1"
+  checksum: 10/73e870da8e109c596f07c62688f11efc5d641201cc316bfcb5c8448e11e5346f2a710dd292b3dbcfae8f565a1f9c901738f6be1a1b6155f6d5550c59949851e0
   languageName: node
   linkType: hard
 
