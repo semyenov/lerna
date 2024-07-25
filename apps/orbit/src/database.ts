@@ -73,6 +73,7 @@ export interface DatabaseInstance<
   identity: IdentityInstance
   accessController: AccessControllerInstance
   addOperation: (op: DatabaseOperation<T>) => Promise<string>
+  iterator: () => AsyncIterableIterator<EntryInstance<T>>
   close: () => Promise<void>
   drop: () => Promise<void>
 }

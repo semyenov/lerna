@@ -16,8 +16,8 @@ export interface IPFSBlockStorageOptions {
 
 export class IPFSBlockStorage<T = unknown> implements StorageInstance<T> {
   private ipfs: any
-  private pin: boolean
-  private timeout: number
+  private readonly pin: boolean
+  private readonly timeout: number
 
   constructor(options: IPFSBlockStorageOptions) {
     if (!options.ipfs) {

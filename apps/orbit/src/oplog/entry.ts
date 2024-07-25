@@ -160,11 +160,8 @@ export class Entry<T = unknown> implements EntryInstance<T> {
 
   async encode(): Promise<this> {
     const { cid, bytes } = await Block.encode({ value: this, codec, hasher })
-    const hash = cid.toString(hashStringEncoding)
-    const clock = new Clock(this.clock.id, this.clock.time)
-
-    this.clock = clock
-    this.hash = hash
+    this.hash = cid.toString(hashStringEncoding)
+    this.clock = new Clock(this.clock.id, this.clock.time)
     this.bytes = bytes
 
     return this

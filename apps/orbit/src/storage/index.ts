@@ -6,15 +6,6 @@ import { MemoryStorage, type MemoryStorageOptions } from './memory.js'
 
 import type { StorageInstance } from './types.js'
 
-interface StorageTypeMap<T = unknown> {
-  composed: ComposedStorage<T>
-  ipfs: IPFSBlockStorage<T>
-  lru: LRUStorage<T>
-  level: LevelStorage<T>
-  memory: MemoryStorage<T>
-}
-type StorageType = keyof StorageTypeMap
-
 export {
   ComposedStorage,
   IPFSBlockStorage,
@@ -29,6 +20,4 @@ export type {
   LRUStorageOptions,
   MemoryStorageOptions,
   StorageInstance,
-  StorageType,
-  StorageTypeMap,
 }

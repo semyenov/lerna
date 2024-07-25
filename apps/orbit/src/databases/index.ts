@@ -22,24 +22,22 @@ import {
   type KeyValueInstance,
 } from './keyvalue.js'
 
-import type { DatabaseInstance } from '../database.js'
-
 export interface DatabaseOperation<T> {
   op: 'PUT' | 'DEL' | 'ADD'
   key: string | null
   value: T | null
 }
 
-export interface DatabaseTypeMap {
-  events: EventsDatabase
-  documents: DocumentsDatabase
-  keyvalue: KeyValueDatabase
-  'keyvalue-indexed': KeyValueIndexedDatabase
+export interface DatabaseTypeMap<T = unknown> {
+  events: EventsDatabase<T>
+  documents: DocumentsDatabase<T>
+  keyvalue: KeyValueDatabase<T>
+  'keyvalue-indexed': KeyValueIndexedDatabase<T>
 }
 
 export type DatabaseType<T = unknown> = {
   type: string
-  create: (...args: any[]) => Promise<DatabaseInstance<T>>
+  create: (...args: any[]) => Promise<DatabaseTypeMap[keyof DatabaseTypeMap<T>]>
 }
 
 const databaseTypes: Record<string, DatabaseType> = {}

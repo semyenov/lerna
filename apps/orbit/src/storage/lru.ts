@@ -11,7 +11,7 @@ export interface LRUStorageOptions {
 
 export class LRUStorage<T> implements StorageInstance<T> {
   private lru: LRU<T>
-  private size: number
+  private readonly size: number
 
   constructor({ size = STORAGE_LRU_SIZE }: LRUStorageOptions = {}) {
     this.size = size

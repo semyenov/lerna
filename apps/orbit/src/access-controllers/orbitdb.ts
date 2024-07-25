@@ -1,7 +1,4 @@
-/**
- * @namespace AccessControllers-OrbitDB
- * @memberof module:AccessControllers
- */
+import { TypedEventEmitter } from '@libp2p/interface'
 
 import { ACCESS_CONTROLLER_ORBITDB_TYPE } from '../constants.js'
 import { createId } from '../utils/index.js'
@@ -9,13 +6,17 @@ import { createId } from '../utils/index.js'
 import { IPFSAccessController } from './ipfs.js'
 
 import type { AccessControllerInstance, AccessControllerType } from './index.js'
-import type { DatabaseEvents } from '../database.js'
+import type { DatabaseEvents, DatabaseInstance } from '../database.js'
+import type { DatabaseType } from '../databases/index.js'
+import type { IdentitiesInstance } from '../identities/index.js'
 import type { EntryInstance } from '../oplog/entry.js'
+import type { OrbitDBInstance } from '../orbitdb.js'
 
-export interface OrbitDBAccessControllerInstance
-  extends AccessControllerInstance {
+export interface OrbitDBAccessControllerInstance<
+  E extends DatabaseEvents<Record<string, string[]>>,
+> extends AccessControllerInstance {
   type: string
-  events: DatabaseEvents
+  events: TypedEventEmitter<E>
   address: string
   write: string[]
 
@@ -28,129 +29,148 @@ export interface OrbitDBAccessControllerInstance
   revoke: (capability: string, key: string) => Promise<void>
 }
 
-export const OrbitDBAccessController: AccessControllerType<
+interface OrbitDBAccessControllerOptions {
+  orbitdb: OrbitDBInstance
+  identities: IdentitiesInstance
+  address?: string
+  name?: string
+  write?: string[]
+}
+
+export class OrbitDBAccessController
+  implements
+    OrbitDBAccessControllerInstance<DatabaseEvents<Record<string, string[]>>>
+{
+  static type = ACCESS_CONTROLLER_ORBITDB_TYPE
+
+  type: string
+  events: TypedEventEmitter<DatabaseEvents<Record<string, string[]>>>
+  address: string
+  write: string[]
+  private db: DatabaseInstance<
+    Record<string, string[]>,
+    DatabaseEvents<Record<string, string[]>>
+  >
+  private orbitdb: OrbitDBInstance
+  private identities: IdentitiesInstance
+
+  constructor({
+    orbitdb,
+    identities,
+    address,
+    name,
+    write,
+  }: OrbitDBAccessControllerOptions) {
+    this.type = ACCESS_CONTROLLER_ORBITDB_TYPE
+    this.orbitdb = orbitdb
+    this.identities = identities
+    this.write = write || [orbitdb.identity.id]
+    this.address = address || name || ''
+    this.events = new TypedEventEmitter<
+      DatabaseEvents<Record<string, string[]>>
+    >()
+  }
+
+  async initialize(): Promise<void> {
+    const address_ = this.address || (await createId(64))
+    this.db = await this.orbitdb.open<Record<string, string[]>, 'keyvalue'>(
+      address_,
+      {
+        type: 'keyvalue',
+        AccessController: IPFSAccessController({ write: this.write }),
+      },
+    )
+    this.address = this.db.address!
+    this.events = this.db.events
+  }
+
+  async canAppend(entry: EntryInstance): Promise<boolean> {
+    const writerIdentity = await this.identities.getIdentity(entry.identity!)
+    if (!writerIdentity) {
+      return false
+    }
+
+    const { id } = writerIdentity
+    const hasWriteAccess =
+      (await this.hasCapability('write', id)) ||
+      (await this.hasCapability('admin', id))
+    if (hasWriteAccess) {
+      return this.identities.verifyIdentity(writerIdentity)
+    }
+
+    return false
+  }
+
+  async capabilities(): Promise<Record<string, Set<string>>> {
+    const _capabilities: Record<string, Set<string>> = {}
+    for await (const { key, value } of this.db.iterator()) {
+      _capabilities[key!] = new Set(value)
+    }
+
+    const toSet = (e: [string, Set<string>]) => {
+      const key = e[0]
+      _capabilities[key!] = new Set([...(_capabilities[key!] || []), ...e[1]])
+    }
+
+    Object.entries({
+      ..._capabilities,
+      ...{
+        admin: new Set([
+          ...(_capabilities.admin || []),
+          ...this.db.accessController.write,
+        ]),
+      },
+    }).forEach(toSet)
+
+    return _capabilities
+  }
+
+  async get(capability: string): Promise<Set<string>> {
+    const _capabilities = await this.capabilities()
+    return _capabilities[capability!] || new Set([])
+  }
+
+  async close(): Promise<void> {
+    await this.db.close()
+  }
+
+  async drop(): Promise<void> {
+    await this.db.drop()
+  }
+
+  async hasCapability(capability: string, key: string): Promise<boolean> {
+    const access = new Set(await this.get(capability))
+    return access.has(key) || access.has('*')
+  }
+
+  async grant(capability: string, key: string): Promise<void> {
+    const capabilities = new Set([
+      ...((await this.db.get(capability)) || []),
+      key,
+    ])
+    await this.db.put(capability, Array.from(capabilities))
+  }
+
+  async revoke(capability: string, key: string): Promise<void> {
+    const capabilities = new Set((await this.db.get(capability)) || [])
+    capabilities.delete(key)
+    if (capabilities.size > 0) {
+      await this.db.put(capability, Array.from(capabilities))
+    } else {
+      await this.db.del(capability)
+    }
+  }
+}
+
+export const createOrbitDBAccessController: AccessControllerType<
   'orbitdb',
   OrbitDBAccessControllerInstance
 > =
   ({ write }: { write?: string[] }) =>
-  async ({ orbitdb, identities, address, name }) => {
-    let address_ = address || name || (await createId(64))
-    const write_ = write || [orbitdb.identity.id]
-
-    // Open the database used for access information
-    const db = await orbitdb.open<string[], 'keyvalue'>(address_, {
-      type: 'keyvalue',
-      AccessController: IPFSAccessController({ write: write_ }),
-    })
-    address_ = db.address!
-
-    const canAppend = async (entry: EntryInstance) => {
-      const writerIdentity = await identities.getIdentity(entry.identity!)
-      if (!writerIdentity) {
-        return false
-      }
-
-      const { id } = writerIdentity
-      // If the ACL contains the writer's public key or it contains '*'
-      const hasWriteAccess =
-        (await hasCapability('write', id)) || (await hasCapability('admin', id))
-      if (hasWriteAccess) {
-        return identities.verifyIdentity(writerIdentity)
-      }
-
-      return false
-    }
-
-    const capabilities = async () => {
-      const _capabilities: Record<string, Set<string>> = {}
-      for await (const { key, value } of db.iterator()) {
-        _capabilities[key!] = new Set(value)
-      }
-
-      const toSet = (e: [string, Set<string>]) => {
-        const key = e[0]
-        _capabilities[key!] = new Set([...(_capabilities[key!] || []), ...e[1]])
-      }
-
-      // Merge with the access controller of the database
-      // and make sure all values are Sets
-      Object.entries({
-        ..._capabilities,
-        // Add the root access controller's 'write' access list
-        // as admins on this controller
-        ...{
-          admin: new Set([
-            ...(_capabilities.admin || []),
-            ...db.accessController.write,
-          ]),
-        },
-      }).forEach(toSet)
-
-      return _capabilities
-    }
-
-    const get = async (capability: string) => {
-      const _capabilities = await capabilities()
-      return _capabilities[capability!] || new Set([])
-    }
-
-    const close = async () => {
-      await db.close()
-    }
-
-    const drop = async () => {
-      await db.drop()
-    }
-
-    const hasCapability = async (capability: string, key: string) => {
-      // Write keys and admins keys are allowed
-      const access = new Set(await get(capability))
-      return access.has(key) || access.has('*')
-    }
-
-    /**
-     * Grants a capability to an identity, storing it to the access control
-     * database.
-     * @param {string} capability A capability (e.g. write).
-     * @param {string} key An id of an identity.
-     * @memberof module:AccessControllers.AccessControllers-OrbitDB
-     * @instance
-     */
-    const grant = async (capability: string, key: string) => {
-      // Merge current keys with the new key
-      const capabilities = new Set([
-        ...((await db.get(capability)) || []),
-        ...[key],
-      ])
-      await db.put(capability, Array.from(capabilities.values()))
-    }
-
-    const revoke = async (capability: string, key: string) => {
-      const capabilities = new Set((await db.get(capability)) || [])
-      capabilities.delete(key)
-      if (capabilities.size > 0) {
-        await db.put(capability, Array.from(capabilities.values()))
-      } else {
-        await db.del(capability)
-      }
-    }
-
-    const accessController: OrbitDBAccessControllerInstance = {
-      type: ACCESS_CONTROLLER_ORBITDB_TYPE,
-      address: address_,
-      write: write_,
-      canAppend,
-      capabilities,
-      hasCapability,
-      get,
-      grant,
-      revoke,
-      close,
-      drop,
-      events: db.events,
-    }
-
-    return accessController
+  async (options: OrbitDBAccessControllerOptions) => {
+    const controller = new OrbitDBAccessController({ ...options, write })
+    await controller.initialize()
+    return controller
   }
 
-OrbitDBAccessController.type = ACCESS_CONTROLLER_ORBITDB_TYPE
+createOrbitDBAccessController.type = ACCESS_CONTROLLER_ORBITDB_TYPE

@@ -23,12 +23,7 @@ export {
   OrbitDBAccessController,
 } from './access-controllers'
 
-export {
-  Identities,
-  isIdentity,
-  useIdentityProvider,
-  PublicKeyIdentityProvider,
-} from './identities'
+export { Identities, PublicKeyIdentityProvider } from './identities'
 
 export {
   IPFSBlockStorage,

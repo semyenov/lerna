@@ -1,18 +1,18 @@
 /* eslint-disable unused-imports/no-unused-vars */
 // @ts-ignore: lru is not typed
-import LRU from 'lru'
-import PQueue from 'p-queue'
+import LRU from "lru";
+import PQueue from "p-queue";
 
-import { MemoryStorage } from '../storage/memory.js'
+import { MemoryStorage } from "../storage/memory.js";
 
-import { Clock, type ClockInstance } from './clock.js'
-import { ConflictResolution } from './conflict-resolution.js'
-import { Entry, type EntryInstance } from './entry.js'
-import { Heads } from './heads.js'
+import { Clock, type ClockInstance } from "./clock.js";
+import { ConflictResolution } from "./conflict-resolution.js";
+import { Entry, type EntryInstance } from "./entry.js";
+import { Heads } from "./heads.js";
 
-import type { AccessControllerInstance } from '../access-controllers/index.js'
-import type { IdentityInstance } from '../identities/index.js'
-import type { StorageInstance } from '../storage'
+import type { AccessControllerInstance } from "../access-controllers/index.js";
+import type { IdentityInstance } from "../identities/index.js";
+import type { StorageInstance } from "../storage";
 
 export interface LogIteratorOptions {
   gt?: string
@@ -279,7 +279,7 @@ export class Log<T> implements LogInstance<T> {
       if (entry && !traversed[entry.hash!]) {
         yield entry
         const done = await shouldStopFn(entry, useRefs)
-        if (done === true) {
+        if (done) {
           break
         }
         traversed[entry.hash!] = true
@@ -486,7 +486,6 @@ export class Log<T> implements LogInstance<T> {
   }
 
   private async fetchEntry(hash: string): Promise<EntryInstance<T> | null> {
-    const entry = await this.get(hash)
-    return entry
+    return await this.get(hash)
   }
 }

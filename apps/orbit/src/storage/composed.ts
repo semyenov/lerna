@@ -6,8 +6,8 @@ export interface ComposedStorageOptions<T> {
 }
 
 export class ComposedStorage<T> implements StorageInstance<T> {
-  private storage1: StorageInstance<T>
-  private storage2: StorageInstance<T>
+  private readonly storage1: StorageInstance<T>
+  private readonly storage2: StorageInstance<T>
 
   constructor(options: ComposedStorageOptions<T>) {
     this.storage1 = options.storage1

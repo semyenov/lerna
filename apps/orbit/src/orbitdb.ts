@@ -26,7 +26,7 @@ import type { DatabaseInstance } from './database.js'
 import type { StorageInstance } from './storage/index.js'
 import type { HeliaInstance, PeerId } from './vendor.js'
 
-export interface OrbitDBOpenOptions<T, D extends keyof DatabaseTypeMap<T>> {
+export interface OrbitDBOpenOptions<T, D extends keyof DatabaseTypeMap> {
   type?: D
   meta?: any
   sync?: boolean
@@ -59,7 +59,7 @@ export interface OrbitDBInstance {
   open: <T, D extends keyof DatabaseTypeMap>(
     address: string,
     options: OrbitDBOpenOptions<T, D>,
-  ) => Promise<DatabaseType>
+  ) => Promise<DatabaseInstance<T>>
   stop: () => Promise<void>
 }
 
@@ -113,10 +113,7 @@ export class OrbitDB implements OrbitDBInstance {
       keystore = await KeyStore.create({
         path: join(defaultDirectory, './keystore'),
       })
-      identities = Identities.create({ ipfs: options.ipfs, keystore })({
-        ipfs: options.ipfs,
-        keystore,
-      })
+      identities = await Identities.create({ ipfs: options.ipfs, keystore })
     }
 
     let finalIdentity: IdentityInstance
@@ -146,19 +143,19 @@ export class OrbitDB implements OrbitDBInstance {
     )
   }
 
-  async open<T, D extends keyof DatabaseTypeMap<T>>(
+  async open<T, D extends keyof DatabaseTypeMap>(
     address: string,
     options: OrbitDBOpenOptions<T, D>,
-  ): Promise<DatabaseTypeMap<T>[D]> {
-    let name: string,
-      manifest: Manifest | null,
-      accessController: AccessControllerInstance,
-      address_: string = address,
-      type_: D = options.type || (DATABASE_DEFAULT_TYPE as D),
-      meta_: any = options.meta
+  ): Promise<DatabaseInstance<T>> {
+    let name: string
+    let manifest: Manifest | null
+    let accessController: AccessControllerInstance
+    let address_: string = address
+    let type_: D = options.type || (DATABASE_DEFAULT_TYPE as D)
+    let meta_: any = options.meta
 
     if (this.databases[address_!]) {
-      return this.databases[address_!] as DatabaseTypeMap<T>[D]
+      return this.databases[address_!]
     }
 
     if (OrbitDBAddress.isValidAddress(address_)) {
@@ -211,7 +208,7 @@ export class OrbitDB implements OrbitDBInstance {
 
       meta_ = meta_ || manifest?.meta
       if (this.databases[address_!]) {
-        return this.databases[address_!] as DatabaseTypeMap<T>[D]
+        return this.databases[address_!]
       }
     }
 
@@ -227,8 +224,8 @@ export class OrbitDB implements OrbitDBInstance {
       address: address_,
       name,
       meta: meta_,
-      directory: this.directory,
       accessController,
+      directory: this.directory,
       syncAutomatically: options.sync,
       headsStorage: options.headsStorage,
       entryStorage: options.entryStorage,
@@ -236,11 +233,11 @@ export class OrbitDB implements OrbitDBInstance {
       referencesCount: options.referencesCount,
     })
 
-    db.events.on('close', this.onDatabaseClosed(address_))
+    db.events.addEventListener('close', this.onDatabaseClosed(address_))
 
     this.databases[address_!] = db
 
-    return db as DatabaseTypeMap<T>[D]
+    return db
   }
 
   private onDatabaseClosed = (address: string) => (): void => {
