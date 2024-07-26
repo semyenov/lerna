@@ -21,7 +21,7 @@ export interface Manifest {
 }
 
 export interface ManifestStoreOptions {
-  ipfs?: HeliaInstance
+  ipfs: HeliaInstance
   storage?: StorageInstance<Uint8Array>
 }
 
@@ -42,7 +42,7 @@ export class ManifestStore implements ManifestStoreInstance {
     this.storage = storage
   }
 
-  static create({ ipfs, storage }: ManifestStoreOptions = {}): ManifestStore {
+  static create({ ipfs, storage }: ManifestStoreOptions): ManifestStore {
     const storage_ =
       storage ||
       ComposedStorage.create<Uint8Array>({

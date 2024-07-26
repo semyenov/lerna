@@ -73,7 +73,7 @@ export class Identities implements IdentitiesInstance {
       : ComposedStorage.create({
           storage1: LRUStorage.create<Uint8Array>({ size: 1000 }),
           storage2: IPFSBlockStorage.create({
-            ipfs: options.ipfs,
+            ipfs: options.ipfs!,
             pin: true,
           }),
         })
