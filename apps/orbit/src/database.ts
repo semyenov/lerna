@@ -131,13 +131,9 @@ export class Database<
       ipfs,
       log,
       start: syncAutomatically ?? true,
-      onSynced: async (peerId, heads) => {
-        console.log('onSynced', peerId, heads)
-        for (const head of heads) {
-          await this.applyOperation(head)
-        }
+      onSynced: async (bytes) => {
+        await this.applyOperation(bytes)
       },
-      // onSynced: this.applyOperation.bind(this),
     })
     this.peers = this.sync.peers
   }

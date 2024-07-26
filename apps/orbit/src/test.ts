@@ -104,7 +104,7 @@ const main = async () => {
   })
 
   console.log(db)
-  db.put({ _id: 'test', test: 'test' })
+  // db.put({ _id: 'test', test: 'test' })
 
   // const result = await db.get('test')
   // console.log(result)

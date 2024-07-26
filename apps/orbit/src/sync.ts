@@ -33,7 +33,7 @@ interface SyncOptions<T> {
   start?: boolean
   timestamp?: number
   timeout?: number
-  onSynced?: (peerId: PeerId, heads: Uint8Array[]) => Promise<void>
+  onSynced?: (head: Uint8Array) => Promise<void>
 }
 
 interface SyncInstance<T, E extends SyncEvents<T>> {
@@ -50,7 +50,7 @@ class Sync<T, E extends SyncEvents<T> = SyncEvents<T>>
 {
   private ipfs: HeliaInstance
   private log: LogInstance<T>
-  private onSynced?: (peerId: PeerId, heads: Uint8Array[]) => Promise<void>
+  private onSynced?: (bytes: Uint8Array) => Promise<void>
   private timeout: number
   private queue: PQueue
   private started: boolean
@@ -103,9 +103,7 @@ class Sync<T, E extends SyncEvents<T> = SyncEvents<T>>
       for await (const value of source) {
         const headBytes = value.subarray()
         if (headBytes && this.onSynced) {
-          await this.onSynced(peerId, [
-            headBytes as unknown as EntryInstance<T>,
-          ])
+          await this.onSynced(headBytes)
         }
       }
       if (this.started) {
@@ -186,7 +184,7 @@ class Sync<T, E extends SyncEvents<T> = SyncEvents<T>>
       try {
         const detail = message.detail as SignedMessage
         if (detail.from && data && this.onSynced) {
-          await this.onSynced(detail.from as PeerId, [data])
+          await this.onSynced(data)
         }
       } catch (error) {
         console.error('error', error)
