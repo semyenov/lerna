@@ -18,7 +18,7 @@ export class LRUStorage<T> implements StorageInstance<T> {
     this.lru = new LRU<T>(this.size)
   }
 
-  static create<T>(options: LRUStorageOptions = {}): LRUStorage<T> {
+  static async create<T>(options: LRUStorageOptions): Promise<LRUStorage<T>> {
     return new LRUStorage<T>(options)
   }
 

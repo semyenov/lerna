@@ -21,7 +21,7 @@ export interface Manifest {
 }
 
 export interface ManifestStoreOptions {
-  ipfs?: HeliaInstance
+  ipfs: HeliaInstance
   storage?: StorageInstance<Uint8Array>
 }
 
@@ -42,12 +42,15 @@ export class ManifestStore implements ManifestStoreInstance {
     this.storage = storage
   }
 
-  static create({ ipfs, storage }: ManifestStoreOptions = {}): ManifestStore {
+  static async create({
+    ipfs,
+    storage,
+  }: ManifestStoreOptions): Promise<ManifestStore> {
     const storage_ =
       storage ||
       ComposedStorage.create<Uint8Array>({
-        storage1: LRUStorage.create({ size: 1000 }),
-        storage2: IPFSBlockStorage.create({ ipfs, pin: true }),
+        storage1: await LRUStorage.create({ size: 1000 }),
+        storage2: await IPFSBlockStorage.create({ ipfs, pin: true }),
       })
 
     return new ManifestStore(storage_)
@@ -55,6 +58,7 @@ export class ManifestStore implements ManifestStoreInstance {
 
   async get(address: string): Promise<Manifest | null> {
     const bytes = await this.storage.get(address)
+    // console.log('manifest', bytes)
     if (!bytes) {
       return null
     }
@@ -64,6 +68,7 @@ export class ManifestStore implements ManifestStoreInstance {
       codec,
       hasher,
     })
+
     return value
   }
 

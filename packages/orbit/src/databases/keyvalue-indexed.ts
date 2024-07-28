@@ -8,6 +8,7 @@ import { join } from '../utils'
 import { KeyValueDatabase, type KeyValueInstance } from './keyvalue.js'
 
 import type { DatabaseOperation, DatabaseType } from './index.js'
+// eslint-disable-next-line perfectionist/sort-imports
 import type { DatabaseInstance, DatabaseOptions } from '../database.js'
 import type { EntryInstance } from '../oplog/entry.js'
 import type { LogInstance } from '../oplog/log.js'
@@ -155,7 +156,7 @@ export class KeyValueIndexedDatabase<T = unknown>
     )
 
     const index = await Index.create<T>(indexDirectory)
-    const keyValueStore = await KeyValueDatabase.create({
+    const keyValueStore = await KeyValueDatabase.create<T>({
       ipfs,
       identity,
       address,
@@ -168,7 +169,7 @@ export class KeyValueIndexedDatabase<T = unknown>
       indexStorage,
       referencesCount,
       syncAutomatically,
-      onUpdate: index.update.bind(index),
+      onUpdate: (log, entry) => index.update(log, entry),
     })
 
     return new KeyValueIndexedDatabase(keyValueStore, index)

@@ -1,8 +1,11 @@
 /* eslint-disable unused-imports/no-unused-vars */
+import { sign } from 'node:crypto'
+
 // @ts-ignore: lru is not typed
 import LRU from 'lru'
 import PQueue from 'p-queue'
 
+import { verifyMessage } from '../key-store.js'
 import { MemoryStorage } from '../storage/memory.js'
 
 import { Clock, type ClockInstance } from './clock.js'
@@ -10,6 +13,7 @@ import { ConflictResolution } from './conflict-resolution.js'
 import { Entry, type EntryInstance } from './entry.js'
 import { Heads } from './heads.js'
 
+// eslint-disable-next-line perfectionist/sort-imports
 import type { AccessControllerInstance } from '../access-controllers/index.js'
 import type { IdentityInstance } from '../identities/index.js'
 import type { StorageInstance } from '../storage'
@@ -39,7 +43,7 @@ export interface LogOptions<T> {
 
 export interface LogInstance<T> {
   id: string
-  access?: AccessControllerInstance
+  accessController?: AccessControllerInstance
   identity: IdentityInstance
   storage: StorageInstance<Uint8Array>
   clock: () => Promise<ClockInstance>
@@ -66,7 +70,7 @@ export interface LogInstance<T> {
 
 export class Log<T> implements LogInstance<T> {
   public id: string
-  public access?: AccessControllerInstance
+  public accessController: AccessControllerInstance
   public identity: IdentityInstance
   public storage: StorageInstance<Uint8Array>
 
@@ -87,7 +91,8 @@ export class Log<T> implements LogInstance<T> {
 
     this.id = options.logId || Log.randomId()
     this.identity = identity
-    this.access = options.accessController || Log.defaultAccessController()
+    this.accessController =
+      options.accessController || Log.defaultAccessController()
     this.storage = options.entryStorage || new MemoryStorage()
     this.indexStorage = options.indexStorage || new MemoryStorage()
     this.headsStorage = options.headsStorage || new MemoryStorage()
@@ -156,6 +161,7 @@ export class Log<T> implements LogInstance<T> {
 
   async get(hash: string): Promise<EntryInstance<T> | null> {
     const bytes = await this.storage.get(hash)
+    // console.log('get', bytes)
     if (bytes) {
       return Entry.decode<T>(bytes)
     }
@@ -180,6 +186,7 @@ export class Log<T> implements LogInstance<T> {
       )
       const entry = await Entry.create<T>(
         this.identity,
+        (data: Uint8Array) => this.identity.sign(data),
         this.id,
         data,
         (await this.clock()).tick(),
@@ -187,7 +194,10 @@ export class Log<T> implements LogInstance<T> {
         refs_,
       )
 
-      const canAppend = await this.access!.canAppend(entry)
+      // console.log('append', entry, this.accessController)
+
+      const canAppend = await this.accessController.canAppend(entry)
+      // console.log('canAppend', canAppend)
       if (!canAppend) {
         throw new Error(
           `Could not append entry: Key "${this.identity.hash}" is not allowed to write to the log`,
@@ -196,7 +206,8 @@ export class Log<T> implements LogInstance<T> {
 
       await this.heads_.set([entry])
       await this.storage.put(entry.hash!, entry.bytes!)
-      await this.indexStorage.put(entry.hash!, true)
+      await this.indexStorage.put(entry.hash, true)
+
       return entry
     }) as Promise<EntryInstance<T>>
   }
@@ -411,13 +422,13 @@ export class Log<T> implements LogInstance<T> {
         `Entry's id (${entry.id}) doesn't match the log's id (${this.id}).`,
       )
     }
-    const canAppend = await this.access!.canAppend(entry)
+    const canAppend = await this.accessController!.canAppend(entry)
     if (!canAppend) {
       throw new Error(
         `Could not append entry: Key "${entry.identity}" is not allowed to write to the log`,
       )
     }
-    const isValid = await Entry.verify(this.identity, entry)
+    const isValid = await Entry.verify(entry)
     if (!isValid) {
       throw new Error(`Could not validate signature for entry "${entry.hash}"`)
     }

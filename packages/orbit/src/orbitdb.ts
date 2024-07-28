@@ -1,31 +1,32 @@
 import {
+  getAccessController,
   type AccessControllerInstance,
   type AccessControllerTypeMap,
-  getAccessController,
 } from './access-controllers/index.js'
 import { IPFSAccessController } from './access-controllers/ipfs.js'
 import { OrbitDBAddress } from './address.js'
 import { DATABASE_DEFAULT_TYPE } from './constants.js'
-import { type DatabaseTypeMap, getDatabaseType } from './databases/index.js'
+import { getDatabaseType, type DatabaseTypeMap } from './databases/index.js'
 import {
   Identities,
   type IdentitiesInstance,
   type IdentityInstance,
 } from './identities/index.js'
 import { KeyStore, type KeyStoreInstance } from './key-store.js'
-import { type Manifest, ManifestStore } from './manifest-store.js'
+import { ManifestStore, type Manifest } from './manifest-store.js'
 import { join } from './utils'
 import { createId } from './utils/index.js'
+import { posixJoin } from './utils/path-join.js'
 
 import type { StorageInstance } from './storage/index.js'
 import type { HeliaInstance, PeerId } from './vendor.js'
 
 export interface OrbitDBOpenOptions<T, D extends keyof DatabaseTypeMap> {
-  type?: D
+  type: D
+  address: string
 
   meta?: any
   sync?: boolean
-  address?: string
   referencesCount?: number
 
   Database?: (...args: any[]) => DatabaseTypeMap<T>[D]
@@ -55,8 +56,6 @@ export interface OrbitDBInstance {
   peerId: PeerId
 
   open: <T, D extends keyof DatabaseTypeMap>(
-    type: D,
-    address: string,
     options: OrbitDBOpenOptions<T, D>,
   ) => Promise<DatabaseTypeMap<T>[D]>
   stop: () => Promise<void>
@@ -139,7 +138,7 @@ export class OrbitDB implements OrbitDBInstance {
     }
 
     const identity = await getIdentity(options.identity)
-    const manifestStore = ManifestStore.create({ ipfs })
+    const manifestStore = await ManifestStore.create({ ipfs })
 
     return new OrbitDB(
       id,
@@ -153,28 +152,30 @@ export class OrbitDB implements OrbitDBInstance {
   }
 
   async open<T, D extends keyof DatabaseTypeMap>(
-    type: D = DATABASE_DEFAULT_TYPE as D,
-    address: string,
-    options: OrbitDBOpenOptions<T, D> = {},
+    options: OrbitDBOpenOptions<T, D>,
   ): Promise<DatabaseTypeMap<T>[D]> {
-    let type_: D = type
-    let address_: string = address
+    let type: D = options.type
+    let address: string = options.address
 
     let name: string
+    let meta: any = options.meta
     let manifest: Manifest | null
     let accessController: AccessControllerInstance
-    let meta: any = options.meta
 
-    if (this.databases[address_!]) {
-      return this.databases[address_!] as DatabaseTypeMap<T>[D]
+    if (this.databases[address!]) {
+      return this.databases[address!] as DatabaseTypeMap<T>[D]
     }
 
-    if (OrbitDBAddress.isValidAddress(address_)) {
-      const addr = OrbitDBAddress.create(address_)
+    if (OrbitDBAddress.isValidAddress(address)) {
+      const addr = OrbitDBAddress.create(address)
       manifest = await this.manifestStore.get(addr.hash)
       if (!manifest) {
-        throw new Error(`Manifest not found for address: ${address_}`)
+        throw new Error(`Manifest not found for address: ${address}`)
       }
+
+      name = manifest.name
+      type = type || manifest.type
+      meta = meta || manifest.meta
 
       const acType = manifest.accessController
         .split('/', 2)
@@ -190,13 +191,8 @@ export class OrbitDB implements OrbitDBInstance {
         identities: this.identities,
         address: manifest.accessController,
       })
-
-      name = manifest.name
-      meta = meta || manifest.meta
-
-      type_ = type || manifest.type
     } else {
-      type_ = type || DATABASE_DEFAULT_TYPE
+      type = type || DATABASE_DEFAULT_TYPE
 
       const AccessController =
         options.AccessController || DEFAULT_ACCESS_CONTROLLER
@@ -207,24 +203,24 @@ export class OrbitDB implements OrbitDBInstance {
       })
 
       const m = await this.manifestStore.create({
-        name: address_,
-        type: type_,
+        name: address,
+        type,
         accessController: accessController.address!,
         meta,
       })
 
-      address_ = m.hash
-
       manifest = m.manifest
+      address = OrbitDBAddress.create(m.hash).toString()
+
       name = manifest.name
       meta = meta || manifest.meta
 
-      if (this.databases[address_!] as DatabaseTypeMap<T>[D]) {
-        return this.databases[address_!] as DatabaseTypeMap<T>[typeof type]
+      if (this.databases[address!] as DatabaseTypeMap<T>[D]) {
+        return this.databases[address!] as DatabaseTypeMap<T>[typeof type]
       }
     }
 
-    const Database = options.Database || getDatabaseType(type_)
+    const Database = options.Database || getDatabaseType(type)
     if (!Database) {
       throw new Error(`Unsupported database type: '${type}'`)
     }
@@ -232,11 +228,11 @@ export class OrbitDB implements OrbitDBInstance {
     const database = (await Database({
       ipfs: this.ipfs,
       identity: this.identity,
-      address: address_,
+      address,
       name,
       meta,
       accessController,
-      directory: this.directory,
+      directory: posixJoin(this.directory, 'db'),
       syncAutomatically: options.sync,
       headsStorage: options.headsStorage,
       entryStorage: options.entryStorage,
@@ -244,9 +240,8 @@ export class OrbitDB implements OrbitDBInstance {
       referencesCount: options.referencesCount,
     })) as DatabaseTypeMap<T>[typeof type]
 
-    database.events.addEventListener('close', this.onDatabaseClosed(address_))
-
-    this.databases[address_!] = database
+    database.events.addEventListener('close', this.onDatabaseClosed(address))
+    this.databases[address!] = database
 
     return database
   }

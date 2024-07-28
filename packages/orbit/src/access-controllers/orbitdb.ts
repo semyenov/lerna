@@ -4,6 +4,7 @@ import { createId } from '../utils/index.js'
 import { IPFSAccessController } from './ipfs.js'
 
 import type { AccessControllerInstance } from './index.js'
+// eslint-disable-next-line perfectionist/sort-imports
 import type { DatabaseEvents } from '../database.js'
 import type { DatabaseTypeMap } from '../databases/index.js'
 import type { IdentitiesInstance } from '../identities/index.js'
@@ -72,14 +73,11 @@ export class OrbitDBAccessController
   ): Promise<OrbitDBAccessControllerInstance<DatabaseEvents<string[]>>> {
     const { orbitdb, identities, name, write } = options
     const address = options.address || name || (await createId(64))
-    const database = await options.orbitdb.open<string[], 'keyvalue'>(
-      'keyvalue',
+    const database = await options.orbitdb.open<string[], 'keyvalue'>({
       address,
-      {
-        type: 'keyvalue',
-        AccessController: IPFSAccessController.create,
-      },
-    )
+      type: 'keyvalue',
+      AccessController: IPFSAccessController.create,
+    })
 
     return new OrbitDBAccessController(
       orbitdb,

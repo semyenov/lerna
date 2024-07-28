@@ -11,4 +11,4 @@ export type HeliaInstance = HeliaLibp2p<
   }>
 >
 
-export type { PeerId, PublicKey, KeyType, PrivateKey } from '@libp2p/interface'
+export type { KeyType, PeerId, PrivateKey, PublicKey } from '@libp2p/interface'

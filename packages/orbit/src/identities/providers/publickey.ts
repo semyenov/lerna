@@ -7,7 +7,6 @@ import type { IdentityInstance } from '../identity.js'
 import type {
   IdentityProviderInstance,
   IdentityProviderOptions,
-  // IdentityProviderStatic,
 } from '../providers'
 
 export class PublicKeyIdentityProvider implements IdentityProviderInstance {

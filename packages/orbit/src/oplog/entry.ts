@@ -1,10 +1,16 @@
+/* eslint-disable no-console */
 import * as dagCbor from '@ipld/dag-cbor'
 import { base58btc } from 'multiformats/bases/base58'
 import * as Block from 'multiformats/block'
 import { sha256 } from 'multiformats/hashes/sha2'
 
-import { Clock, type ClockInstance } from './clock.js'
+import { verifyMessage } from '../key-store.js'
 
+import { Clock } from './clock.js'
+
+// eslint-disable-next-line no-duplicate-imports
+import type { ClockInstance } from './clock.js'
+// eslint-disable-next-line perfectionist/sort-imports
 import type { IdentityInstance } from '../identities'
 
 const codec = dagCbor
@@ -19,7 +25,7 @@ export interface EntryInstance<T = unknown> {
   clock: ClockInstance
   v: number
   key?: string
-  hash?: string
+  hash: string
   identity?: string
   bytes?: Uint8Array
   sig?: string
@@ -28,9 +34,10 @@ export interface EntryInstance<T = unknown> {
 export const Entry = {
   async create<T>(
     identity: IdentityInstance,
+    sign: (data: Uint8Array) => Promise<string>,
     id: string,
     payload: T,
-    clock?: ClockInstance,
+    clock: ClockInstance,
     next?: Array<string>,
     refs: Array<string> = [],
   ): Promise<EntryInstance<T>> {
@@ -47,40 +54,32 @@ export const Entry = {
       throw new Error("'next' argument is not an array")
     }
 
-    const entry: EntryInstance<T> = {
+    const entry: EntryInstance<T> = await this.encode({
       id,
       v: 2,
       payload,
-      clock: clock || new Clock(identity.publicKey),
+      clock,
       next,
       refs,
-    }
+    })
 
-    const { bytes, cid } = await Block.encode({ value: entry, codec, hasher })
-    const signature = await identity.sign!(bytes)
+    const { bytes } = await Block.encode({
+      value: entry,
+      codec,
+      hasher,
+    })
+    const signature = await sign(bytes)
 
-    entry.hash = cid.toString(hashStringEncoding)
     entry.key = identity.publicKey
     entry.identity = identity.hash
     entry.sig = signature
-    entry.bytes = bytes
 
-    return entry
+    console.log('create entry', entry)
+
+    return this.encode(entry)
   },
 
-  async verify<T>(
-    identities: {
-      verify?: (
-        signature: string,
-        publicKey: string,
-        data: string | Uint8Array,
-      ) => Promise<boolean>
-    },
-    entry: EntryInstance<T>,
-  ): Promise<boolean> {
-    if (!identities) {
-      throw new Error('Identities is required, cannot verify entry')
-    }
+  async verify<T>(entry: EntryInstance<T>): Promise<boolean> {
     if (!Entry.isEntry(entry)) {
       throw new Error('Invalid Log entry')
     }
@@ -91,22 +90,20 @@ export const Entry = {
       throw new Error("Entry doesn't have a signature")
     }
 
-    const value = {
-      id: entry.id,
-      payload: entry.payload,
-      next: entry.next,
-      refs: entry.refs,
-      clock: entry.clock,
-      v: entry.v,
-    }
-
-    const { bytes } = await Block.encode<EntryInstance<T>, 113, 18>({
-      value,
+    const { bytes } = await Block.encode({
+      value: {
+        id: entry.id,
+        payload: entry.payload,
+        next: entry.next,
+        refs: entry.refs,
+        clock: entry.clock,
+        v: entry.v,
+      },
       codec,
       hasher,
     })
 
-    return identities.verify!(entry.sig, entry.key, bytes)
+    return verifyMessage(entry.sig, entry.key, bytes.toString())
   },
 
   isEntry(obj: any): obj is EntryInstance {
@@ -132,15 +129,21 @@ export const Entry = {
       hasher,
     })
 
-    return value
+    return this.encode(value)
   },
 
-  async encode(entry: EntryInstance): Promise<Uint8Array> {
-    const { bytes } = await Block.encode({
-      value: entry,
-      codec,
-      hasher,
-    })
-    return bytes
+  async encode<T>(
+    entry: Omit<EntryInstance<T>, 'hash' | 'bytes'>,
+  ): Promise<EntryInstance<T>> {
+    const { cid, bytes } = await Block.encode({ value: entry, codec, hasher })
+    const hash = cid.toString(hashStringEncoding)
+    const clock = new Clock(entry.clock.id, entry.clock.time)
+
+    return {
+      ...entry,
+      clock,
+      hash,
+      bytes,
+    }
   },
 }

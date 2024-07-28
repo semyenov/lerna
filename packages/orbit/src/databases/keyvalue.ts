@@ -6,6 +6,7 @@ import {
 } from '../database'
 
 import type { DatabaseOperation, DatabaseType } from '.'
+// eslint-disable-next-line perfectionist/sort-imports
 import type { AccessControllerInstance } from '../access-controllers'
 import type { IdentityInstance } from '../identities'
 import type { EntryInstance } from '../oplog'
@@ -15,13 +16,12 @@ import type { SyncEvents, SyncInstance } from '../sync'
 import type { HeliaInstance } from '../vendor'
 import type { PeerSet } from '@libp2p/peer-collections'
 
-export interface KeyValueDatabaseOptions<T = unknown>
-  extends DatabaseOptions<T> {
+export interface KeyValueDatabaseOptions<T = unknown> {
   ipfs: HeliaInstance
   identity?: IdentityInstance
   address?: string
   name?: string
-  access?: AccessControllerInstance
+  accessController: AccessControllerInstance
   directory: string
   meta: any
   headsStorage?: StorageInstance<Uint8Array>
@@ -29,7 +29,7 @@ export interface KeyValueDatabaseOptions<T = unknown>
   indexStorage?: StorageInstance<boolean>
   referencesCount?: number
   syncAutomatically?: boolean
-  onUpdate?: (
+  onUpdate: (
     log: LogInstance<DatabaseOperation<T>>,
     entry: EntryInstance<T> | EntryInstance<DatabaseOperation<T>>,
   ) => Promise<void>

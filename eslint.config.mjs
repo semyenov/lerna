@@ -2,7 +2,7 @@ import config from '@regioni/eslint-config'
 
 /**
  * @typedef {import('eslint').Linter.FlatConfig<Linter.RulesRecord>[]} FlatConfig
- * **/
+ */
 
 /** @type {FlatConfig} */
 const eslintConfig = [
@@ -10,6 +10,7 @@ const eslintConfig = [
   {
     rules: {
       'no-unused-vars': 'off',
+      'perfectionist/sort-imports': 'off',
     },
     ignores: [
       'node_modules',

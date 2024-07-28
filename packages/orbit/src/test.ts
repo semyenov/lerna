@@ -1,4 +1,8 @@
-import { type GossipSub, gossipsub } from '@chainsafe/libp2p-gossipsub'
+/* eslint-disable no-console */
+import process from 'node:process'
+import readline from 'node:readline/promises'
+
+import { gossipsub, type GossipSub } from '@chainsafe/libp2p-gossipsub'
 import { noise } from '@chainsafe/libp2p-noise'
 import { yamux } from '@chainsafe/libp2p-yamux'
 import { bitswap } from '@helia/block-brokers'
@@ -16,7 +20,7 @@ import { all } from '@libp2p/websockets/filters'
 import { createLogger } from '@regioni/lib/logger'
 import { LevelBlockstore } from 'blockstore-level'
 import { createHelia } from 'helia'
-import { type Libp2pOptions, createLibp2p } from 'libp2p'
+import { createLibp2p, type Libp2pOptions } from 'libp2p'
 
 import { OrbitDB } from './index.js'
 
@@ -32,7 +36,7 @@ const options: Libp2pOptions<{
   pubsub: GossipSub
 }> = {
   addresses: {
-    listen: ['/ip4/127.0.0.1/tcp/0/ws'],
+    listen: ['/ip4/127.0.0.1/tcp/0'],
   },
   // logger: {
   //   forComponent(name: string) {
@@ -78,36 +82,46 @@ const options: Libp2pOptions<{
     circuitRelay: circuitRelayServer(),
     pubsub: gossipsub({
       allowPublishToZeroTopicPeers: true,
-    }) as unknown as GossipSub,
+    }),
   },
 }
 
 const main = async () => {
   const ipfs = await createHelia({
-    libp2p: await createLibp2p({ ...options }),
+    libp2p: await createLibp2p(options),
     blockstore: new LevelBlockstore(`${directory}/ipfs/blocks`),
     blockBrokers: [bitswap()],
   })
   const orbit = await OrbitDB.create({
     id: 'test',
-    directory: './orbitdb',
+    directory,
     ipfs,
   })
 
-  const db = await orbit.open<{ _id: string; test: string }, 'documents'>(
-    'documents',
-    '/orbitdb/zdpuAqDgvEBDFh2xdNMwzAYJXg17J46Z25yMYHsMuiZpJcbT6',
-  )
+  const db = await orbit.open<{ _id: string; test: string }, 'events'>({
+    type: 'events',
+    address: 'test',
+    referencesCount: 20,
+  })
+  console.log(db)
 
   db.events.addEventListener('update', (entry) => {
-    console.log(entry)
+    console.log('update', entry.detail)
   })
 
-  console.log(db)
-  // db.put({ _id: 'test', test: 'test' })
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
+  })
 
-  // const result = await db.get('test')
-  // console.log(result)
+  let i = 0
+  while (true) {
+    await db.add({ _id: 'test', test: `${'test'} ${++i}` })
+
+    const test = await rl.question('Type hash: ')
+    const result = await db.get(test)
+    console.log(result)
+  }
 }
 
 main()

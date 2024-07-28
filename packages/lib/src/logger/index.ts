@@ -2,10 +2,10 @@
 import { inspect } from 'node:util'
 
 import {
-  type LoggerOptions,
   createLogger as createWinstonLogger,
   format as f,
   transports as t,
+  type LoggerOptions,
 } from 'winston'
 
 export function createLogger(options?: LoggerOptions) {
@@ -69,7 +69,7 @@ export function createLogger(options?: LoggerOptions) {
               Object.keys(log.data).length > 0 &&
               inspect(log.data, {
                 breakLength: 80,
-                compact: true,
+                compact: false,
                 colors: true,
                 showHidden: true,
                 sorted: true,

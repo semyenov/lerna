@@ -7,15 +7,18 @@ import { TimeoutController } from 'timeout-abort-controller'
 import { STORAGE_IPFS_BLOCKSTORAGE_TIMEOUT } from '../constants'
 
 import type { StorageInstance } from './types'
+import type { HeliaInstance } from '../vendor'
 
 export interface IPFSBlockStorageOptions {
-  ipfs: any
+  ipfs: HeliaInstance
   pin?: boolean
   timeout?: number
 }
 
-export class IPFSBlockStorage<T = unknown> implements StorageInstance<T> {
-  private ipfs: any
+export class IPFSBlockStorage<T extends Uint8Array>
+  implements StorageInstance<T>
+{
+  private ipfs: HeliaInstance
   private readonly pin: boolean
   private readonly timeout: number
 
@@ -28,13 +31,13 @@ export class IPFSBlockStorage<T = unknown> implements StorageInstance<T> {
     this.timeout = options.timeout || STORAGE_IPFS_BLOCKSTORAGE_TIMEOUT
   }
 
-  static create<T = unknown>(
+  static async create<T extends Uint8Array>(
     options: IPFSBlockStorageOptions,
-  ): IPFSBlockStorage<T> {
+  ): Promise<IPFSBlockStorage<T>> {
     return new IPFSBlockStorage<T>(options)
   }
 
-  async put(hash: string, data: any): Promise<void> {
+  async put(hash: string, data: T): Promise<void> {
     const cid = CID.parse(hash, base58btc)
     const { signal } = new TimeoutController(this.timeout)
 
@@ -51,9 +54,8 @@ export class IPFSBlockStorage<T = unknown> implements StorageInstance<T> {
   async get(hash: string): Promise<T | null> {
     const cid = CID.parse(hash, base58btc)
     const { signal } = new TimeoutController(this.timeout)
-    console.log('getting block from ipfs', hash, cid)
     const block = await this.ipfs.blockstore.get(cid, { signal })
-    return block || null
+    return (block || null) as T | null
   }
 
   async *iterator(): AsyncIterableIterator<[string, T]> {

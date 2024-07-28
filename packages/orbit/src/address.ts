@@ -15,7 +15,7 @@ export class OrbitDBAddress implements OrbitDBAddressInstance {
   readonly hash: string
   readonly address: string
 
-  constructor(address: string) {
+  private constructor(address: string) {
     this.address = address
     this.hash = address.replace('/orbitdb/', '').replace('\\orbitdb\\', '')
   }
@@ -26,6 +26,7 @@ export class OrbitDBAddress implements OrbitDBAddressInstance {
     if (typeof address !== 'string') {
       return address
     }
+
     return new OrbitDBAddress(address)
   }
 
@@ -56,17 +57,5 @@ export class OrbitDBAddress implements OrbitDBAddressInstance {
     }
 
     return cid !== undefined
-  }
-
-  static parseAddress(address: string): OrbitDBAddressInstance {
-    if (!address) {
-      throw new Error(`Not a valid OrbitDB address: ${address}`)
-    }
-
-    if (!OrbitDBAddress.isValidAddress(address)) {
-      throw new Error(`Not a valid OrbitDB address: ${address}`)
-    }
-
-    return OrbitDBAddress.create(address)
   }
 }

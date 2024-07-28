@@ -4,7 +4,7 @@ import { fromString as uint8ArrayFromString } from 'uint8arrays/from-string'
 import { toString as uint8ArrayToString } from 'uint8arrays/to-string'
 
 import { KEYSTORE_PATH } from './constants.js'
-import { ComposedStorage, LRUStorage, LevelStorage } from './storage/index.js'
+import { ComposedStorage, LevelStorage, LRUStorage } from './storage/index.js'
 
 import type { StorageInstance } from './storage'
 import type { PrivateKey } from './vendor'
@@ -47,7 +47,7 @@ export class KeyStore implements KeyStoreInstance {
     const storage: StorageInstance<Uint8Array> =
       options.storage ||
       ComposedStorage.create<Uint8Array>({
-        storage1: LRUStorage.create({ size: 1000 }),
+        storage1: await LRUStorage.create({ size: 1000 }),
         storage2: await LevelStorage.create({ path }),
       })
 
@@ -159,7 +159,7 @@ async function verifySignature(
 }
 
 export async function signMessage(
-  key: PrivateKey,
+  key: PrivateKey<'secp256k1'>,
   data: string | Uint8Array,
 ): Promise<string> {
   if (!key) {
@@ -183,25 +183,19 @@ export async function verifyMessage(
   publicKey: string,
   data: string,
 ): Promise<boolean> {
-  const verifiedCache = VERIFIED_CACHE_STORAGE
+  const verifiedCache = await VERIFIED_CACHE_STORAGE
   const cached = await verifiedCache.get(signature)
   if (!cached) {
     const verified = await verifySignature(signature, publicKey, data)
     if (verified) {
-      await verifiedCache.put(signature, { publicKey, data })
+      await verifiedCache.put(signature, {
+        publicKey,
+        data,
+      })
     }
 
     return verified
   }
 
-  const compare = (cached: Uint8Array, data: Uint8Array | string) => {
-    return data instanceof Uint8Array
-      ? uint8ArrayCompare(cached, data) === 0
-      : cached.toString() === data
-  }
-
-  return (
-    cached.publicKey === publicKey &&
-    compare(uint8ArrayFromString(cached.data), data)
-  )
+  return cached.publicKey === publicKey && cached.data === data
 }

@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 import { TypedEventEmitter } from '@libp2p/interface'
 import PQueue from 'p-queue'
 
@@ -10,8 +11,8 @@ import { Entry, Log } from './oplog/index.js'
 import {
   ComposedStorage,
   IPFSBlockStorage,
-  LRUStorage,
   LevelStorage,
+  LRUStorage,
   type StorageInstance,
 } from './storage/index.js'
 import { Sync, type SyncEvents, type SyncInstance } from './sync.js'
@@ -41,11 +42,12 @@ export interface DatabaseOptions<T> {
   headsStorage?: StorageInstance<Uint8Array>
   entryStorage?: StorageInstance<Uint8Array>
   indexStorage?: StorageInstance<boolean>
-  accessController?: AccessControllerInstance
+  accessController: AccessControllerInstance
   onUpdate?: (
     log: LogInstance<DatabaseOperation<T>>,
     entry: EntryInstance<T> | EntryInstance<DatabaseOperation<T>>,
   ) => Promise<void>
+  // addOperation: (op: DatabaseOperation<T>) => Promise<string>
 }
 
 export interface DatabaseEvents<T = unknown> {
@@ -64,10 +66,10 @@ export interface DatabaseInstance<
   name?: string
   address?: string
   indexBy?: string
-  peers: PeerSet
   meta: any
   log: LogInstance<DatabaseOperation<T>>
   sync: SyncInstance<DatabaseOperation<T>, SyncEvents<DatabaseOperation<T>>>
+  peers: PeerSet
   events: TypedEventEmitter<E>
   identity: IdentityInstance
   accessController: AccessControllerInstance
@@ -78,13 +80,15 @@ export interface DatabaseInstance<
 
 export class Database<
   T = unknown,
-  E extends DatabaseEvents<T> = DatabaseEvents<T> & SyncEvents<T>,
+  E extends DatabaseEvents<T> & SyncEvents<T> = DatabaseEvents<T> &
+    SyncEvents<DatabaseOperation<T>>,
 > implements DatabaseInstance<T, E>
 {
+  private queue: PQueue
+
   public name?: string
   public address?: string
   public indexBy?: string
-  public peers: PeerSet
   public meta: any
   public log: LogInstance<DatabaseOperation<T>>
   public sync: SyncInstance<
@@ -94,20 +98,25 @@ export class Database<
   public events: TypedEventEmitter<E>
   public identity: IdentityInstance
   public accessController: AccessControllerInstance
+  public addOperation: (op: DatabaseOperation<T>) => Promise<string>
 
-  private queue: PQueue
-  private onUpdate?: (
+  public onUpdate?: (
     log: LogInstance<DatabaseOperation<T>>,
     entry: EntryInstance<T> | EntryInstance<DatabaseOperation<T>>,
   ) => Promise<void>
 
-  private constructor(
-    ipfs: HeliaInstance,
+  public get peers() {
+    return this.sync.peers
+  }
 
+  private constructor(
     identity: IdentityInstance,
+    log: Log<DatabaseOperation<T>>,
+    events: TypedEventEmitter<E>,
+    queue: PQueue,
+    sync: SyncInstance<DatabaseOperation<T>, SyncEvents<DatabaseOperation<T>>>,
+    addOperation: (op: DatabaseOperation<T>) => Promise<string>,
     accessController: AccessControllerInstance,
-    log: LogInstance<DatabaseOperation<T>>,
-    syncAutomatically: boolean,
 
     name?: string,
     address?: string,
@@ -123,44 +132,43 @@ export class Database<
     this.identity = identity
     this.accessController = accessController
     this.onUpdate = onUpdate
-    this.events = new TypedEventEmitter<DatabaseEvents<T>>()
-    this.queue = new PQueue({ concurrency: 1 })
 
     this.log = log
-    this.sync = new Sync({
-      ipfs,
-      log,
-      start: syncAutomatically ?? true,
-      onSynced: async (bytes) => {
-        await this.applyOperation(bytes)
-      },
-    })
-    this.peers = this.sync.peers
+    this.events = events
+    this.queue = queue
+    this.sync = sync
+    this.addOperation = addOperation
   }
 
   static async create<T>(options: DatabaseOptions<T>) {
     const ipfs = options.ipfs
-    const meta = options.meta || {}
     const name = options.name
     const address = options.address
-    const identity = options.identity!
-    const accessController = options.accessController!
-    const onUpdate = options.onUpdate
-    const syncAutomatically = options.syncAutomatically ?? true
-
     const path = join(options.directory || DATABASE_PATH, `./${address}/`)
+    const identity = options.identity!
+    const accessController = options.accessController
+    const onUpdate = options.onUpdate
+    const start = options.syncAutomatically ?? true
+    const referencesCount =
+      options.referencesCount && Number(options.referencesCount) > -1
+        ? options.referencesCount
+        : DATABASE_REFERENCES_COUNT
+    const meta = options.meta || {}
 
     const entryStorage =
       options.entryStorage ||
       ComposedStorage.create({
-        storage1: LRUStorage.create({ size: DATABASE_CACHE_SIZE }),
-        storage2: IPFSBlockStorage.create({ ipfs: options.ipfs, pin: true }),
+        storage1: await LRUStorage.create({ size: DATABASE_CACHE_SIZE }),
+        storage2: await IPFSBlockStorage.create({
+          ipfs,
+          pin: true,
+        }),
       })
 
     const headsStorage =
       options.headsStorage ||
       ComposedStorage.create({
-        storage1: LRUStorage.create({ size: DATABASE_CACHE_SIZE }),
+        storage1: await LRUStorage.create({ size: DATABASE_CACHE_SIZE }),
         storage2: await LevelStorage.create({
           path: join(path, '/log/_heads/'),
         }),
@@ -169,7 +177,7 @@ export class Database<
     const indexStorage =
       options.indexStorage ||
       ComposedStorage.create({
-        storage1: LRUStorage.create({ size: DATABASE_CACHE_SIZE }),
+        storage1: await LRUStorage.create({ size: DATABASE_CACHE_SIZE }),
         storage2: await LevelStorage.create({
           path: join(path, '/log/_index/'),
         }),
@@ -183,56 +191,72 @@ export class Database<
       indexStorage,
     })
 
-    return new Database(
-      ipfs,
-      identity,
-      accessController,
+    const queue = new PQueue({ concurrency: 1 })
+    const events = new TypedEventEmitter<
+      DatabaseEvents<T> & SyncEvents<DatabaseOperation<T>>
+    >()
+
+    const addOperation = async (op: DatabaseOperation<T>): Promise<string> => {
+      console.log('addOperation', op)
+      const task = async () => {
+        const entry = await log.append(op, {
+          referencesCount,
+        })
+        await sync.add(entry)
+        if (onUpdate) {
+          await onUpdate(log, entry)
+        }
+        events.dispatchEvent(new CustomEvent('update', { detail: { entry } }))
+        return entry.hash!
+      }
+
+      const hash = await queue.add(task)
+      await queue.onIdle()
+
+      return hash as string
+    }
+
+    const applyOperation = async (bytes: Uint8Array): Promise<void> => {
+      const task = async () => {
+        const entry = await Entry.decode<DatabaseOperation<T>>(bytes)
+        if (entry) {
+          const updated = await log.joinEntry(entry)
+          if (updated) {
+            if (onUpdate) {
+              await onUpdate(log, entry)
+            }
+            events.dispatchEvent(
+              new CustomEvent('update', { detail: { entry } }),
+            )
+          }
+        }
+      }
+
+      console.log('apply', bytes)
+      await queue.add(task)
+    }
+
+    const sync = new Sync<DatabaseOperation<T>>({
       log,
-      syncAutomatically,
+      ipfs,
+      start,
+      events,
+      onSynced: applyOperation,
+    })
+
+    return new Database(
+      identity,
+      log,
+      events,
+      queue,
+      sync,
+      addOperation,
+      log.accessController,
       name,
       address,
       meta,
       onUpdate,
     )
-  }
-
-  private async applyOperation(bytes: Uint8Array): Promise<void> {
-    const task = async () => {
-      const entry = await Entry.decode<DatabaseOperation<T>>(bytes)
-      if (entry) {
-        const updated = await this.log.joinEntry(entry)
-        if (updated) {
-          if (this.onUpdate) {
-            await this.onUpdate(this.log, entry)
-          }
-          this.events.dispatchEvent(
-            new CustomEvent('update', { detail: { entry } }),
-          )
-        }
-      }
-    }
-
-    await this.queue.add(task)
-  }
-
-  public async addOperation(op: DatabaseOperation<T>): Promise<string> {
-    const task = async () => {
-      const entry = await this.log.append(op, {
-        referencesCount: DATABASE_REFERENCES_COUNT,
-      })
-      await this.sync.add(entry)
-      if (this.onUpdate) {
-        await this.onUpdate(this.log, entry)
-      }
-      this.events.dispatchEvent(
-        new CustomEvent('update', { detail: { entry } }),
-      )
-      return entry.hash!
-    }
-
-    const hash = await this.queue.add(task)
-    await this.queue.onIdle()
-    return hash as string
   }
 
   public async drop(): Promise<void> {

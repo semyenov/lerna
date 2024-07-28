@@ -13,7 +13,7 @@ import {
 import { join } from '../utils'
 
 import type { AccessControllerInstance } from './index.js'
-import type { IdentitiesInstance } from '../identities/index.js'
+import type { IdentitiesInstance } from '../identities'
 import type { EntryInstance } from '../oplog/entry.js'
 import type { OrbitDBInstance } from '../orbitdb.js'
 
@@ -89,8 +89,8 @@ export class IPFSAccessController implements IPFSAccessControllerInstance {
     const storage =
       options.storage ||
       ComposedStorage.create({
-        storage1: LRUStorage.create({ size: 1000 }),
-        storage2: IPFSBlockStorage.create({
+        storage1: await LRUStorage.create({ size: 1000 }),
+        storage2: await IPFSBlockStorage.create({
           ipfs,
           pin: true,
         }),
@@ -131,6 +131,7 @@ export class IPFSAccessController implements IPFSAccessControllerInstance {
 
   async canAppend(entry: EntryInstance): Promise<boolean> {
     const writerIdentity = await this.identities.getIdentity(entry.identity!)
+    // console.log('writerIdentity', writerIdentity)
     if (!writerIdentity) {
       return false
     }
@@ -138,8 +139,14 @@ export class IPFSAccessController implements IPFSAccessControllerInstance {
     // Allow if the write access list contain the writer's id or is '*'
     if (this.write.includes(id) || this.write.includes('*')) {
       // Check that the identity is valid
+      // console.log(
+      //   'verify',
+      //   await this.identities.verifyIdentity(writerIdentity),
+      // )
+
       return this.identities.verifyIdentity(writerIdentity)
     }
+
     return false
   }
 }

@@ -1,10 +1,10 @@
 import {
+  TypedEventEmitter,
   type EventHandler,
   type Message,
   type SignedMessage,
   type StreamHandler,
   type SubscriptionChangeData,
-  TypedEventEmitter,
 } from '@libp2p/interface'
 import { PeerSet } from '@libp2p/peer-collections'
 import { pipe } from 'it-pipe'
@@ -246,4 +246,4 @@ class Sync<T, E extends SyncEvents<T> = SyncEvents<T>>
   }
 }
 
-export { Sync, SyncEvents, SyncOptions, SyncInstance }
+export { Sync, SyncEvents, SyncInstance, SyncOptions }
