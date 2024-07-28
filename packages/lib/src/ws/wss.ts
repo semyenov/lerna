@@ -1,5 +1,5 @@
 import consola from 'consola'
-import { type ServerOptions, type WebSocket, WebSocketServer } from 'ws'
+import { WebSocketServer, type ServerOptions, type WebSocket } from 'ws'
 
 import { wrapSocket } from './wrapper'
 

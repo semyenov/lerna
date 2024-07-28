@@ -1,4 +1,3 @@
-/* eslint-disable no-console */
 import { TypedEventEmitter } from '@libp2p/interface'
 import PQueue from 'p-queue'
 
@@ -197,7 +196,6 @@ export class Database<
     >()
 
     const addOperation = async (op: DatabaseOperation<T>): Promise<string> => {
-      console.log('addOperation', op)
       const task = async () => {
         const entry = await log.append(op, {
           referencesCount,
@@ -232,7 +230,6 @@ export class Database<
         }
       }
 
-      console.log('apply', bytes)
       await queue.add(task)
     }
 

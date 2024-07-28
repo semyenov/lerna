@@ -1,4 +1,4 @@
-import { type ClientOptions, WebSocket as WebSocketNode } from 'ws'
+import { WebSocket as WebSocketNode, type ClientOptions } from 'ws'
 
 import { wrapSocket } from './wrapper'
 

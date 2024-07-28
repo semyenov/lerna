@@ -3,14 +3,14 @@ import { Buffer } from 'node:buffer'
 import { createLogger } from '@regioni/lib/logger'
 import Elliptic from 'elliptic'
 import {
+  importJWK,
+  jwtVerify,
+  SignJWT,
   type JWK,
   type JWTHeaderParameters,
   type JWTPayload,
   type JWTVerifyGetKey,
-  SignJWT,
   type VerifyOptions,
-  importJWK,
-  jwtVerify,
 } from 'jose'
 
 import type { KeyPair } from '@regioni/lib/jose'

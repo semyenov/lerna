@@ -59,8 +59,8 @@ type StorageType = keyof StorageTypeMap
 export type {
   ComposedStorageInstance,
   IPFSBlockStorageInstance,
-  LevelStorageOptions,
   LevelStorageInstance,
+  LevelStorageOptions,
   LRUStorageInstance,
   MemoryStorageInstance,
   StorageInstance,

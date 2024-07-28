@@ -2,10 +2,10 @@ import {
   FetchingJSONSchemaStore,
   InputData,
   JSONSchemaInput,
+  quicktypeMultiFile,
   type JSONSchemaSourceData,
   type Options,
   type TargetLanguage,
-  quicktypeMultiFile,
 } from 'quicktype-core'
 
 export async function quicktypeMultipleJSONSchema(

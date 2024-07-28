@@ -1,10 +1,10 @@
 import { bitswap } from '@helia/block-brokers'
 import {
+  createOrbitDB,
   Identities,
   KeyStore,
   OrbitDBAccessController,
   PublicKeyIdentityProvider,
-  createOrbitDB,
 } from '@orbitdb/core'
 import { createLogger } from '@regioni/lib/logger'
 import { createHelia } from 'helia'

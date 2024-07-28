@@ -6,13 +6,13 @@ import { generateKeyPairFromSeed } from '@stablelib/x25519'
 import * as dagJose from 'dag-jose'
 import { decodeCleartext, prepareCleartext } from 'dag-jose-utils'
 import {
-  type JWE,
   createJWE,
   decryptJWE,
   x25519Decrypter,
   x25519Encrypter,
   xc20pDirDecrypter,
   xc20pDirEncrypter,
+  type JWE,
 } from 'did-jwt'
 import * as Block from 'multiformats/block'
 import { sha256 } from 'multiformats/hashes/sha2'

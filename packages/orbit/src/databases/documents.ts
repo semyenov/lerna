@@ -5,10 +5,10 @@ import {
   type DatabaseOptions,
 } from '../database.js'
 
-import type { LogInstance } from '../oplog/log.js'
-import type { SyncEvents, SyncInstance } from '../sync.js'
 import type { DatabaseOperation } from '.'
 import type { DatabaseType } from './index.js'
+import type { LogInstance } from '../oplog/log.js'
+import type { SyncEvents, SyncInstance } from '../sync.js'
 import type { PeerSet } from '@libp2p/peer-collections'
 
 export interface DocumentsDoc<T = unknown> {

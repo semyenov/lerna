@@ -1,7 +1,7 @@
 export type {
   OrbitDBInstance,
-  OrbitDBOptions,
   OrbitDBOpenOptions,
+  OrbitDBOptions,
 } from './orbitdb.js'
 export { OrbitDB, OrbitDBAddress } from './orbitdb.js'
 
@@ -13,22 +13,22 @@ export {
   useDatabaseType,
 } from './databases'
 
-export { Log, Entry } from './oplog'
+export { Entry, Log } from './oplog'
 export { Database } from './database.js'
 export { KeyStore } from './key-store.js'
 
 export {
-  useAccessController,
   IPFSAccessController,
   OrbitDBAccessController,
+  useAccessController,
 } from './access-controllers'
 
 export { Identities, PublicKeyIdentityProvider } from './identities'
 
 export {
+  ComposedStorage,
   IPFSBlockStorage,
   LevelStorage,
   LRUStorage,
   MemoryStorage,
-  ComposedStorage,
 } from './storage'

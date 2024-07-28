@@ -1,12 +1,7 @@
 import { DATABASE_KEYVALUE_TYPE } from '../constants'
-import {
-  Database,
-  type DatabaseInstance,
-  type DatabaseOptions,
-} from '../database'
+import { Database, type DatabaseInstance } from '../database'
 
 import type { DatabaseOperation, DatabaseType } from '.'
-// eslint-disable-next-line perfectionist/sort-imports
 import type { AccessControllerInstance } from '../access-controllers'
 import type { IdentityInstance } from '../identities'
 import type { EntryInstance } from '../oplog'

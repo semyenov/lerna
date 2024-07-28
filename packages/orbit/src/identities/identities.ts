@@ -1,6 +1,3 @@
-/* eslint-disable no-console */
-import { identify } from '@libp2p/identify'
-
 import {
   KeyStore,
   signMessage,
@@ -131,7 +128,6 @@ export class Identities implements IdentitiesInstance {
       sign: signFactory(this.keystore, id),
     })
 
-    // console.log('get identity', identity.bytes, identity.hash)
     await this.storage.put(identity.hash, identity.bytes)
 
     return identity
@@ -142,16 +138,12 @@ export class Identities implements IdentitiesInstance {
       return false
     }
 
-    // console.log('*******verifyIdentity', identity)
-
     const { id, publicKey, signatures } = identity
     const idSignatureVerified = await verifyMessage(
       signatures.id,
       publicKey,
       id,
     )
-
-    // console.log('idSignatureVerified', idSignatureVerified)
 
     if (!idSignatureVerified) {
       return false
@@ -166,20 +158,14 @@ export class Identities implements IdentitiesInstance {
         provider: identity.provider,
       }))
 
-    // console.log('verifiedIdentity', verifiedIdentity, signatures)
-
     if (verifiedIdentity) {
       return Identity.isEqual(identity, verifiedIdentity)
     }
 
-    // console.log('not Equal', identity)
-
     const Provider = IdentityProviders.getIdentityProvider(identity.type)
-    // console.log('Provider', Provider)
 
     const identityVerified = await Provider.verifyIdentity(identity)
     if (identityVerified) {
-      // console.log('identity verified', signatures.id, identity)
       await this.verifiedIdentitiesCache.put(signatures.id, identity)
     }
 
@@ -188,7 +174,6 @@ export class Identities implements IdentitiesInstance {
 
   async getIdentity(hash: string): Promise<IdentityInstance | null> {
     const bytes = await this.storage.get(hash)
-    // console.log('get identity', bytes, hash)
     if (bytes) {
       return await Identity.decode(bytes, signFactory(this.keystore, hash))
     }
@@ -221,7 +206,6 @@ const signFactory = (keystore: KeyStoreInstance, id: string) => {
       throw new Error('Private key not found')
     }
 
-    console.log('sign', data, privateKey)
     return signMessage(privateKey, data)
   }
 }

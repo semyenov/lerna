@@ -3,7 +3,7 @@ import { validate } from '@typeschema/typebox'
 import { loadConfig as c12LoadConfig } from 'c12'
 
 import { ErrorConfigNotFound, ErrorConfigNotValid } from './errors'
-import { type Config, ConfigSchema } from './schema'
+import { ConfigSchema, type Config } from './schema'
 
 const logger = createLogger({
   defaultMeta: {

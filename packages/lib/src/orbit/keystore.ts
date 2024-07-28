@@ -1,5 +1,5 @@
 import { generateKeyPair, importKey } from '@libp2p/crypto/keys'
-import { type CreateStorageOptions, createStorage } from 'unstorage'
+import { createStorage, type CreateStorageOptions } from 'unstorage'
 
 import { ErrorKeyNotFound } from './errors'
 

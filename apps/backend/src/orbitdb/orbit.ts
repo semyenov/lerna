@@ -1,13 +1,9 @@
-import {
-  type OrbitDBInstance,
-  type OrbitDBOptions,
-  createOrbitDB,
-} from '@apps/orbit'
+import { OrbitDB, type OrbitDBOptions } from '@apps/orbit'
 import { bitswap } from '@helia/block-brokers'
 import { createLogger } from '@regioni/lib/logger'
 import { LevelBlockstore } from 'blockstore-level'
 import { createHelia } from 'helia'
-import { type Libp2pOptions, createLibp2p } from 'libp2p'
+import { createLibp2p, type Libp2pOptions } from 'libp2p'
 
 import { DefaultLibp2pBrowserOptions, DefaultLibp2pOptions } from './config'
 
@@ -39,7 +35,7 @@ export async function startOrbitDB({
     blockBrokers: [bitswap()],
   })
 
-  return createOrbitDB({
+  return OrbitDB.create({
     id,
     identity,
     identities,
@@ -48,11 +44,9 @@ export async function startOrbitDB({
   })
 }
 
-export async function stopOrbitDB(orbitdb: OrbitDBInstance): Promise<void> {
+export async function stopOrbitDB(orbitdb: OrbitDB): Promise<void> {
   await orbitdb.stop()
   await orbitdb.ipfs.stop()
-
-  logger.debug('orbitdb stopped', spied.calls, spied.returns)
 }
 
 const orbitdb = await startOrbitDB({
@@ -60,15 +54,18 @@ const orbitdb = await startOrbitDB({
   directory: '.',
 })
 
-const db = await orbitdb.open<{ test: string }, 'documents'>('test')
-
-db.events.on('update', (entry) => {
-  console.log(entry)
+const db = await orbitdb.open<{ __id: string; test: string }, 'documents'>({
+  type: 'documents',
+  address: 'test',
 })
 
-db.put({ test: 'test' })
+db.events.addEventListener('update', (event) => {
+  console.log(event.detail)
+})
 
-const result = await db.get('test')
+db.put({ __id: '1', test: 'test' })
+
+const result = await db.get('1')
 console.log(result)
 
 await stopOrbitDB(orbitdb)

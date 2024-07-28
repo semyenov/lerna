@@ -128,15 +128,15 @@ export type {
   Databases,
   DatabasesTypeMap,
   DocumentsDoc,
-  IDocuments as DocumentsInstance,
   DocumentsIteratorOptions,
   DocumentsOptions,
   EventsDoc,
   EventsInstance,
   EventsIteratorOptions,
+  IDocuments as DocumentsInstance,
+  IKeyValue as KeyValueInstance,
   KeyValueDoc,
   KeyValueIndexedInstance,
-  IKeyValue as KeyValueInstance,
   KeyValueIteratorOptions,
 }
 export { Documents, Events, KeyValue, KeyValueIndexed }

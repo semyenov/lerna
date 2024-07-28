@@ -1,4 +1,3 @@
-/* eslint-disable no-console */
 import * as dagCbor from '@ipld/dag-cbor'
 import { base58btc } from 'multiformats/bases/base58'
 import * as Block from 'multiformats/block'
@@ -10,7 +9,6 @@ import { Clock } from './clock.js'
 
 // eslint-disable-next-line no-duplicate-imports
 import type { ClockInstance } from './clock.js'
-// eslint-disable-next-line perfectionist/sort-imports
 import type { IdentityInstance } from '../identities'
 
 const codec = dagCbor
@@ -73,8 +71,6 @@ export const Entry = {
     entry.key = identity.publicKey
     entry.identity = identity.hash
     entry.sig = signature
-
-    console.log('create entry', entry)
 
     return this.encode(entry)
   },

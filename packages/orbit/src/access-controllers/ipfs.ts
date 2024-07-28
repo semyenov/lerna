@@ -131,19 +131,12 @@ export class IPFSAccessController implements IPFSAccessControllerInstance {
 
   async canAppend(entry: EntryInstance): Promise<boolean> {
     const writerIdentity = await this.identities.getIdentity(entry.identity!)
-    // console.log('writerIdentity', writerIdentity)
     if (!writerIdentity) {
       return false
     }
     const { id } = writerIdentity
     // Allow if the write access list contain the writer's id or is '*'
     if (this.write.includes(id) || this.write.includes('*')) {
-      // Check that the identity is valid
-      // console.log(
-      //   'verify',
-      //   await this.identities.verifyIdentity(writerIdentity),
-      // )
-
       return this.identities.verifyIdentity(writerIdentity)
     }
 

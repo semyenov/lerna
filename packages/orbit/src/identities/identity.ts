@@ -3,11 +3,7 @@ import { base58btc } from 'multiformats/bases/base58'
 import * as Block from 'multiformats/block'
 import { sha256 } from 'multiformats/hashes/sha2'
 
-import { signMessage, verifyMessage } from '../key-store'
-
 import type { IdentityProviderInstance } from './providers'
-// eslint-disable-next-line perfectionist/sort-imports
-import type { PrivateKey } from '../vendor'
 
 export interface IdentitySignatures {
   id: string
@@ -112,8 +108,6 @@ export class Identity implements IdentityInstance {
   }
 
   static isEqual(a: Identity, b: Identity): boolean {
-    // console.log('isEqual', a, b)
-
     return (
       a.id === b.id &&
       a.hash === b.hash &&

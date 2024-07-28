@@ -58,7 +58,6 @@ export class ManifestStore implements ManifestStoreInstance {
 
   async get(address: string): Promise<Manifest | null> {
     const bytes = await this.storage.get(address)
-    // console.log('manifest', bytes)
     if (!bytes) {
       return null
     }

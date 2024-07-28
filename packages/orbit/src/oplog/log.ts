@@ -1,11 +1,9 @@
 /* eslint-disable unused-imports/no-unused-vars */
-import { sign } from 'node:crypto'
 
 // @ts-ignore: lru is not typed
 import LRU from 'lru'
 import PQueue from 'p-queue'
 
-import { verifyMessage } from '../key-store.js'
 import { MemoryStorage } from '../storage/memory.js'
 
 import { Clock, type ClockInstance } from './clock.js'
@@ -13,7 +11,6 @@ import { ConflictResolution } from './conflict-resolution.js'
 import { Entry, type EntryInstance } from './entry.js'
 import { Heads } from './heads.js'
 
-// eslint-disable-next-line perfectionist/sort-imports
 import type { AccessControllerInstance } from '../access-controllers/index.js'
 import type { IdentityInstance } from '../identities/index.js'
 import type { StorageInstance } from '../storage'
@@ -161,7 +158,6 @@ export class Log<T> implements LogInstance<T> {
 
   async get(hash: string): Promise<EntryInstance<T> | null> {
     const bytes = await this.storage.get(hash)
-    // console.log('get', bytes)
     if (bytes) {
       return Entry.decode<T>(bytes)
     }
@@ -194,10 +190,7 @@ export class Log<T> implements LogInstance<T> {
         refs_,
       )
 
-      // console.log('append', entry, this.accessController)
-
       const canAppend = await this.accessController.canAppend(entry)
-      // console.log('canAppend', canAppend)
       if (!canAppend) {
         throw new Error(
           `Could not append entry: Key "${this.identity.hash}" is not allowed to write to the log`,

@@ -1,11 +1,11 @@
-import { type GossipSub, gossipsub } from '@chainsafe/libp2p-gossipsub'
+import { gossipsub, type GossipSub } from '@chainsafe/libp2p-gossipsub'
 import { noise } from '@chainsafe/libp2p-noise'
 import { yamux } from '@chainsafe/libp2p-yamux'
 import {
   circuitRelayServer,
   circuitRelayTransport,
 } from '@libp2p/circuit-relay-v2'
-import { type Identify, identify } from '@libp2p/identify'
+import { identify, type Identify } from '@libp2p/identify'
 import { mdns } from '@libp2p/mdns'
 import { tcp } from '@libp2p/tcp'
 import { webRTC } from '@libp2p/webrtc'
@@ -54,11 +54,8 @@ export const DefaultLibp2pOptions: Options = {
   },
   services: {
     identify: identify(),
-    circuitRelay: circuitRelayServer(),
-    test: (component: any) => {
-      console.log(component)
-      return component
-    },
+    circuitRelayServer: circuitRelayServer(),
+    circuitRelayTransport: circuitRelayTransport(),
     pubsub: gossipsub({
       allowPublishToZeroTopicPeers: true,
     }),

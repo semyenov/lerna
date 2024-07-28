@@ -64,8 +64,8 @@ export { KeyStore, signMessage, verifyMessage } from './key-store'
 
 export type {
   AccessController,
-  AccessControllerOptions,
   AccessControllerInstance,
+  AccessControllerOptions,
   OrbitDBAccessControllerInstance,
 } from './access-controller'
 export {
@@ -118,9 +118,9 @@ export {
 export { Entry, Log } from './log'
 
 export type {
-  StorageInstance,
   LevelStorageInstance,
   LevelStorageOptions,
+  StorageInstance,
 } from './storage'
 export {
   ComposedStorage,

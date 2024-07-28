@@ -50,8 +50,8 @@ declare const OrbitDBAccessController: (
 
 export type {
   AccessController,
-  AccessControllerOptions,
   AccessControllerInstance,
+  AccessControllerOptions,
   IPFSAccessControllerInstance,
   OrbitDBAccessControllerInstance,
 }

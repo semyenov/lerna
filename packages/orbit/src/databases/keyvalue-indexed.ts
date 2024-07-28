@@ -8,7 +8,6 @@ import { join } from '../utils'
 import { KeyValueDatabase, type KeyValueInstance } from './keyvalue.js'
 
 import type { DatabaseOperation, DatabaseType } from './index.js'
-// eslint-disable-next-line perfectionist/sort-imports
 import type { DatabaseInstance, DatabaseOptions } from '../database.js'
 import type { EntryInstance } from '../oplog/entry.js'
 import type { LogInstance } from '../oplog/log.js'

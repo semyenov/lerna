@@ -2,11 +2,11 @@ import { secp256k1ToJWK } from '@regioni/lib/jose'
 import { createLogger } from '@regioni/lib/logger'
 import { KeyStore } from '@regioni/lib/orbit'
 import {
+  createLocalJWKSet,
   type FlattenedJWSInput,
   type JWK,
   type JWSHeaderParameters,
   type KeyLike,
-  createLocalJWKSet,
 } from 'jose'
 import { createStorage } from 'unstorage'
 import fsDriver, { type FSStorageOptions } from 'unstorage/drivers/fs'
